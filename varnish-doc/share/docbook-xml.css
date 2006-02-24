@@ -144,13 +144,13 @@ orderedlist, itemizedlist {
 
 orderedlist > listitem {
 	display: list-item;
-	list-style-type: roman inside;
+	list-style: decimal inside;
 	margin-left: 4em;
 }
 
 itemizedlist > listitem {
 	display: list-item;
-	list-style-type: disc inside;
+	list-style: disc inside;
 	margin-left: 4em;
 }
 
@@ -163,7 +163,7 @@ xref:before {
 
 xref {
 	color: blue;
-	font-decoration: underline;
+	text-decoration: underline;
 }
 
 xref:after {
