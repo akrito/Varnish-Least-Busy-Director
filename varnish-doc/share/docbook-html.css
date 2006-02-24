@@ -1,0 +1,45 @@
+/* $Id$ */
+
+body {
+	margin: 1in;
+	background-color: white;
+	color: black;
+}
+
+h1.book-title {
+	font-size: 200%;
+	font-weight: bold;
+}
+
+h1.article-title {
+	font-size: 200%;
+	font-weight: bold;
+}
+
+span.title1 {
+	color: maroon;
+	font-weight: bold;
+	font-size: xx-large;
+}
+
+span.title2 {
+	color: maroon;
+	font-weight: bold;
+	font-size: x-large;
+}
+
+span.title3 {
+	color: maroon;
+	font-weight: bold;
+	font-size: large;
+}
+
+span.title4 {
+	color: maroon;
+	font-weight: bold;
+}
+
+span.title5 {
+	color: maroon;
+	font-weight: bold;
+}
