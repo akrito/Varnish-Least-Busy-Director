@@ -155,6 +155,48 @@ itemizedlist > listitem {
 }
 
 /*
+ * Tables
+ */
+informaltable {
+	display: block;
+	padding: 1em;
+}
+
+tgroup {
+	display: table;
+	border-collapse: collapse;
+	empty-cells: show;
+}
+
+tgroup > thead {
+	display: table-header-group;
+	font-weight: bold;
+}
+
+tgroup > tbody {
+	display: table-row-group;
+}
+
+tgroup > tfoot {
+	display: table-footer-group;
+	font-weight: bold;
+}
+
+thead > row,
+tbody > row,
+tfoot > row
+{
+	display: table-row;
+}
+
+row > entry
+{
+	display: table-cell;
+	padding: 1ex;
+	border: thin solid black;
+}
+
+/*
  * Links
  */
 xref:before {
