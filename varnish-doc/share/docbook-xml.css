@@ -150,7 +150,7 @@ orderedlist > listitem {
 
 itemizedlist > listitem {
 	display: list-item;
-	list-style: disc inside;
+	list-style: disc outside;
 	margin-left: 4em;
 }
 
