@@ -77,7 +77,7 @@
   </xsl:template>
 
   <xsl:template match="bibliography">
-    <xsl:param name="level"/>
+    <xsl:param name="level" select="1"/>
     <div class="bibliography">
       <xsl:apply-templates>
 	<xsl:with-param name="level" select="$level + 1"/>
@@ -139,6 +139,48 @@
     <li>
       <xsl:apply-templates/>
     </li>
+  </xsl:template>
+
+  <xsl:template match="informaltable">
+    <div class="informaltable">
+      <xsl:apply-templates/>
+    </div>
+  </xsl:template>
+
+  <xsl:template match="tgroup">
+    <table>
+      <xsl:apply-templates/>
+    </table>
+  </xsl:template>
+
+  <xsl:template match="thead">
+    <thead>
+      <xsl:apply-templates/>
+    </thead>
+  </xsl:template>
+
+  <xsl:template match="tbody">
+    <tbody>
+      <xsl:apply-templates/>
+    </tbody>
+  </xsl:template>
+
+  <xsl:template match="tfoot">
+    <tfoot>
+      <xsl:apply-templates/>
+    </tfoot>
+  </xsl:template>
+
+  <xsl:template match="row">
+    <tr>
+      <xsl:apply-templates/>
+    </tr>
+  </xsl:template>
+
+  <xsl:template match="entry">
+    <td>
+      <xsl:apply-templates/>
+    </td>
   </xsl:template>
 
   <xsl:template match="para">
