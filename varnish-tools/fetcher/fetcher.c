@@ -11,11 +11,15 @@
 #include <fetch.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
+static const char HEAD[] = "HEAD";
+static const char GET[] = "GET";
+static const char *method = GET;
 static const char *req_pattern =
-"GET http://varnish-test-1.linpro.no/cgi-bin/recursor.pl?foo=%d HTTP/1.1\r\n"
+"%s /cgi-bin/recursor.pl?foo=%d HTTP/1.1\r\n"
 "Host: varnish-test-1.linpro.no\r\n"
-"Connection: keep\r\n"
+"Connection: Keep-Alive\r\n"
 "\r\n";
 
 static const char *
@@ -43,13 +47,35 @@ read_line(FILE *f)
 	return (buf);
 }
 
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: fetcher [-h]\n");
+	exit(1);
+}
+
 int
-main(void)
+main(int argc, char *argv[])
 {
 	struct addrinfo hints, *res;
-	int clen, code, ctr, error, sd;
+	int clen, code, ctr, error, opt, sd;
 	const char *line;
 	FILE *f;
+
+	while ((opt = getopt(argc, argv, "h")) != -1)
+		switch (opt) {
+		case 'h':
+			method = HEAD;
+			break;
+		default:
+			usage();
+		}
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 0)
+		usage();
 
 	/* connect to accelerator */
 	memset(&hints, 0, sizeof(hints));
@@ -65,12 +91,13 @@ main(void)
 		err(1, "fdopen()");
 
 	for (ctr = 0; ctr < 5000; ++ctr) {
-		fprintf(stderr, "\r%d ", ctr);
 
 		/* send request */
-		fprintf(f, req_pattern, ctr);
+		fprintf(f, req_pattern, method, ctr);
 #ifdef DEBUG
-		fprintf(stderr, req_pattern, ctr);
+		fprintf(stderr, req_pattern, method, ctr);
+#else
+		fprintf(stderr, "\r%d ", ctr);
 #endif
 
 		/* get response header */
@@ -94,9 +121,10 @@ main(void)
 			errx(1, "no content length");
 
 		/* eat contents */
-		while (clen--)
-			if (getc(f) == EOF)
-				errx(1, "connection prematurely closed");
+		if (method != HEAD)
+			while (clen--)
+				if (getc(f) == EOF)
+					errx(1, "connection prematurely closed");
 	}
 	fclose(f);
 
