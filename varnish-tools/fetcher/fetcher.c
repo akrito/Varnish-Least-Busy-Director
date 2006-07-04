@@ -51,6 +51,7 @@ main(void)
 	const char *line;
 	FILE *f;
 
+	/* connect to accelerator */
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
@@ -62,12 +63,15 @@ main(void)
 		err(1, "connect()");
 	if ((f = fdopen(sd, "w+")) == NULL)
 		err(1, "fdopen()");
+
 	for (ctr = 0; ctr < 5000; ++ctr) {
 		fprintf(stderr, "\r%d ", ctr);
+
+		/* send request */
+		fprintf(f, req_pattern, ctr);
 #ifdef DEBUG
 		fprintf(stderr, req_pattern, ctr);
 #endif
-		fprintf(f, req_pattern, ctr);
 
 		/* get response header */
 		if ((line = read_line(f)) == NULL)
@@ -95,5 +99,6 @@ main(void)
 				errx(1, "connection prematurely closed");
 	}
 	fclose(f);
+
 	exit(0);
 }
