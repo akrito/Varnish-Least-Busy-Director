@@ -13,6 +13,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#define MAX_CTR 5000
+
+static char data[8192];
 static const char HEAD[] = "HEAD";
 static const char GET[] = "GET";
 static const char *method = GET;
@@ -58,7 +61,8 @@ int
 main(int argc, char *argv[])
 {
 	struct addrinfo hints, *res;
-	int clen, code, ctr, error, opt, sd;
+	int code, ctr, error, opt, sd;
+	size_t clen;
 	const char *line;
 	FILE *f;
 
@@ -90,14 +94,15 @@ main(int argc, char *argv[])
 	if ((f = fdopen(sd, "w+")) == NULL)
 		err(1, "fdopen()");
 
-	for (ctr = 0; ctr < 5000; ++ctr) {
+	for (ctr = 0; ctr < 500000; ++ctr) {
 
 		/* send request */
-		fprintf(f, req_pattern, method, ctr);
+		fprintf(f, req_pattern, method, ctr % MAX_CTR);
 #ifdef DEBUG
-		fprintf(stderr, req_pattern, method, ctr);
+		fprintf(stderr, req_pattern, method, ctr % MAX_CTR);
 #else
-		fprintf(stderr, "\r%d ", ctr);
+		if (ctr % 163 == 0)
+			fprintf(stderr, "\r%d ", ctr);
 #endif
 
 		/* get response header */
@@ -109,22 +114,22 @@ main(int argc, char *argv[])
 			errx(1, "code %d", code);
 
 		/* get content-length */
-		clen = -1;
+		clen = 0;
 		for (;;) {
 			if ((line = read_line(f)) == NULL)
 				errx(1, "protocol error");
 			if (line[0] == '\0')
 				break;
-			sscanf(line, "Content-Length: %d\n", &clen);
+			sscanf(line, "Content-Length: %zu\n", &clen);
 		}
-		if (clen == -1)
-			errx(1, "no content length");
 
 		/* eat contents */
-		if (method != HEAD)
-			while (clen--)
-				if (getc(f) == EOF)
-					errx(1, "connection prematurely closed");
+		if (method == HEAD)
+			continue;
+		while (clen > 0) {
+			size_t rlen = clen > sizeof(data) ? sizeof(data) : clen;
+			clen -= fread(data, 1, rlen, f);
+		}
 	}
 	fclose(f);
 
