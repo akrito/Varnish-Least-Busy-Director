@@ -4,6 +4,7 @@
 
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 
 #include <err.h>
 #include <netdb.h>
@@ -113,6 +114,14 @@ receive_response(FILE *f, const char *method)
 	}
 }
 
+static volatile sig_atomic_t got_sig;
+
+static void
+handler(int sig)
+{
+	got_sig = sig;
+}
+
 static void
 usage(void)
 {
@@ -125,6 +134,8 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	struct timeval start, stop;
+	double elapsed;
 	char url[PATH_MAX];
 	int i, opt, sd;
 	FILE *f;
@@ -159,14 +170,22 @@ main(int argc, char *argv[])
 	if ((f = fdopen(sd, "w+")) == NULL)
 		err(1, "fdopen()");
 
-	for (i = 0; i < ctr; ++i) {
-		if (i % 163 == 0)
-			fprintf(stderr, "\r%d ", i);
+	got_sig = 0;
+	signal(SIGINT, handler);
+	signal(SIGTERM, handler);
+	gettimeofday(&start, NULL);
+	for (i = 0; i < ctr && !got_sig; ++i) {
 		snprintf(url, sizeof url, url_pattern, i % MAX_CTR);
 		send_request(f, method, host, url);
 		receive_response(f, method);
 	}
+	gettimeofday(&stop, NULL);
 	fclose(f);
+
+	elapsed = (stop.tv_sec * 1000000.0 + stop.tv_usec) -
+	    (start.tv_sec * 1000000.0 + start.tv_usec);
+	fprintf(stderr, "%d requests in %.3f seconds (%d rps)\n",
+	    i, elapsed / 1000000, (int)(i / (elapsed / 1000000)));
 
 	exit(0);
 }
