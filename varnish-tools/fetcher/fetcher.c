@@ -160,8 +160,9 @@ main(int argc, char *argv[])
 		err(1, "fdopen()");
 
 	for (i = 0; i < ctr; ++i) {
-		fprintf(stderr, "\r%d ", i);
-		snprintf(url, sizeof url, url_pattern, ctr % MAX_CTR);
+		if (i % 163 == 0)
+			fprintf(stderr, "\r%d ", i);
+		snprintf(url, sizeof url, url_pattern, i % MAX_CTR);
 		send_request(f, method, host, url);
 		receive_response(f, method);
 	}
