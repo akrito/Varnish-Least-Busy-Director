@@ -129,7 +129,7 @@ usage(void)
 	exit(1);
 }
 
-#define MAX_CTR 5000
+#define MAX_CTR 100000
 
 int
 main(int argc, char *argv[])
@@ -143,7 +143,7 @@ main(int argc, char *argv[])
 	const char *method = GET;
 	const char *host = "varnish-test-1.linpro.no";
 	const char *url_pattern = "/cgi-bin/recursor.pl?foo=%d";
-	int ctr = 500000;
+	int ctr = MAX_CTR * 10;
 
 	while ((opt = getopt(argc, argv, "c:hv")) != -1)
 		switch (opt) {
