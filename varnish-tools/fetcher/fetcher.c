@@ -187,5 +187,5 @@ main(int argc, char *argv[])
 	fprintf(stderr, "%d requests in %.3f seconds (%d rps)\n",
 	    i, elapsed / 1000000, (int)(i / (elapsed / 1000000)));
 
-	exit(0);
+	exit(got_sig);
 }
