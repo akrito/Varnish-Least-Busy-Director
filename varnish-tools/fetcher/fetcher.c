@@ -13,17 +13,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_CTR 5000
+static int verbose;
 
 static char data[8192];
-static const char HEAD[] = "HEAD";
-static const char GET[] = "GET";
-static const char *method = GET;
-static const char *req_pattern =
-"%s /cgi-bin/recursor.pl?foo=%d HTTP/1.1\r\n"
-"Host: varnish-test-1.linpro.no\r\n"
-"Connection: Keep-Alive\r\n"
-"\r\n";
 
 static const char *
 read_line(FILE *f)
@@ -44,10 +36,81 @@ read_line(FILE *f)
 	}
 	memcpy(buf, line, len);
 	buf[len] = '\0';
-#ifdef DEBUG
-	fprintf(stderr, "<<< [%s]\n", buf);
-#endif
+	if (verbose)
+		fprintf(stderr, "<<< [%s]\n", buf);
 	return (buf);
+}
+
+static int
+open_socket(const char *host, const char *port)
+{
+	struct addrinfo hints, *res;
+	int error, sd;
+
+	/* connect to accelerator */
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	if ((error = getaddrinfo(host, port, &hints, &res)) != 0)
+		errx(1, "%s", gai_strerror(error));
+	if ((sd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
+		err(1, "socket()");
+	if (connect(sd, res->ai_addr, res->ai_addrlen) < 0)
+		err(1, "connect()");
+	return (sd);
+}
+
+static const char HEAD[] = "HEAD";
+static const char GET[] = "GET";
+
+static void
+send_request(FILE *f, const char *method, const char *host, const char *url)
+{
+	static const char *req_pattern =
+	    "%s %s HTTP/1.1\r\n"
+	    "Host: %s\r\n"
+	    "Connection: Keep-Alive\r\n"
+	    "\r\n";
+
+	/* send request */
+	if (fprintf(f, req_pattern, method, url, host) < 0)
+		errx(1, "fprintf()");
+	if (verbose)
+		fprintf(stderr, req_pattern, method, url, host);
+}
+
+static void
+receive_response(FILE *f, const char *method)
+{
+	const char *line;
+	size_t clen, rlen;
+	int code;
+
+	/* get response header */
+	if ((line = read_line(f)) == NULL)
+		errx(1, "protocol error");
+	if (sscanf(line, "HTTP/%*d.%*d %d %*s", &code) != 1)
+		errx(1, "protocol error");
+	if (code != 200)
+		errx(1, "code %d", code);
+
+	/* get content-length */
+	clen = 0;
+	for (;;) {
+		if ((line = read_line(f)) == NULL)
+			errx(1, "protocol error");
+		if (line[0] == '\0')
+			break;
+		sscanf(line, "Content-Length: %zu\n", &clen);
+	}
+
+	/* eat contents */
+	if (method == HEAD)
+		return;
+	while (clen > 0) {
+		rlen = clen > sizeof(data) ? sizeof(data) : clen;
+		clen -= fread(data, 1, rlen, f);
+	}
 }
 
 static void
@@ -57,19 +120,30 @@ usage(void)
 	exit(1);
 }
 
+#define MAX_CTR 5000
+
 int
 main(int argc, char *argv[])
 {
-	struct addrinfo hints, *res;
-	int code, ctr, error, opt, sd;
-	size_t clen;
-	const char *line;
+	char url[PATH_MAX];
+	int i, opt, sd;
 	FILE *f;
 
-	while ((opt = getopt(argc, argv, "h")) != -1)
+	const char *method = GET;
+	const char *host = "varnish-test-1.linpro.no";
+	const char *url_pattern = "/cgi-bin/recursor.pl?foo=%d";
+	int ctr = 500000;
+
+	while ((opt = getopt(argc, argv, "c:hv")) != -1)
 		switch (opt) {
+		case 'c':
+			ctr = atoi(optarg);
+			break;
 		case 'h':
 			method = HEAD;
+			break;
+		case 'v':
+			verbose++;
 			break;
 		default:
 			usage();
@@ -81,55 +155,15 @@ main(int argc, char *argv[])
 	if (argc != 0)
 		usage();
 
-	/* connect to accelerator */
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	if ((error = getaddrinfo("varnish-test-2.linpro.no", "http", &hints, &res)) != 0)
-		errx(1, "%s", gai_strerror(error));
-	if ((sd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
-		err(1, "socket()");
-	if (connect(sd, res->ai_addr, res->ai_addrlen) < 0)
-		err(1, "connect()");
+	sd = open_socket("varnish-test-2.linpro.no", "8080");
 	if ((f = fdopen(sd, "w+")) == NULL)
 		err(1, "fdopen()");
 
-	for (ctr = 0; ctr < 500000; ++ctr) {
-
-		/* send request */
-		fprintf(f, req_pattern, method, ctr % MAX_CTR);
-#ifdef DEBUG
-		fprintf(stderr, req_pattern, method, ctr % MAX_CTR);
-#else
-		if (ctr % 163 == 0)
-			fprintf(stderr, "\r%d ", ctr);
-#endif
-
-		/* get response header */
-		if ((line = read_line(f)) == NULL)
-			errx(1, "protocol error");
-		if (sscanf(line, "HTTP/%*d.%*d %d %*s", &code) != 1)
-			errx(1, "protocol error");
-		if (code != 200)
-			errx(1, "code %d", code);
-
-		/* get content-length */
-		clen = 0;
-		for (;;) {
-			if ((line = read_line(f)) == NULL)
-				errx(1, "protocol error");
-			if (line[0] == '\0')
-				break;
-			sscanf(line, "Content-Length: %zu\n", &clen);
-		}
-
-		/* eat contents */
-		if (method == HEAD)
-			continue;
-		while (clen > 0) {
-			size_t rlen = clen > sizeof(data) ? sizeof(data) : clen;
-			clen -= fread(data, 1, rlen, f);
-		}
+	for (i = 0; i < ctr; ++i) {
+		fprintf(stderr, "\r%d ", i);
+		snprintf(url, sizeof url, url_pattern, ctr % MAX_CTR);
+		send_request(f, method, host, url);
+		receive_response(f, method);
 	}
 	fclose(f);
 
