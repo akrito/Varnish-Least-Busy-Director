@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 
+static int random_order;
 static int verbose;
 
 static char data[8192];
@@ -64,6 +65,8 @@ open_socket(const char *host, const char *port)
 static const char HEAD[] = "HEAD";
 static const char GET[] = "GET";
 
+static int reqcount;
+
 static void
 send_request(FILE *f, const char *method, const char *host, const char *url)
 {
@@ -73,6 +76,8 @@ send_request(FILE *f, const char *method, const char *host, const char *url)
 	    "Connection: Keep-Alive\r\n"
 	    "\r\n";
 
+	reqcount++;
+
 	/* send request */
 	if (fprintf(f, req_pattern, method, url, host) < 0)
 		errx(1, "fprintf()");
@@ -80,12 +85,16 @@ send_request(FILE *f, const char *method, const char *host, const char *url)
 		fprintf(stderr, req_pattern, method, url, host);
 }
 
+static int respcount;
+
 static void
 receive_response(FILE *f, const char *method)
 {
 	const char *line;
 	size_t clen, rlen;
 	int code;
+
+	respcount++;
 
 	/* get response header */
 	if ((line = read_line(f)) == NULL)
@@ -110,7 +119,12 @@ receive_response(FILE *f, const char *method)
 		return;
 	while (clen > 0) {
 		rlen = clen > sizeof(data) ? sizeof(data) : clen;
-		clen -= fread(data, 1, rlen, f);
+		rlen = fread(data, 1, rlen, f);
+		if (rlen == 0)
+			err(1, "fread()");
+		if (verbose)
+			fprintf(stderr, "read %zu bytes\n", rlen);
+		clen -= rlen;
 	}
 }
 
@@ -137,21 +151,28 @@ main(int argc, char *argv[])
 	struct timeval start, stop;
 	double elapsed;
 	char url[PATH_MAX];
-	int i, opt, sd;
+	int opt, sd;
 	FILE *f;
 
 	const char *method = GET;
 	const char *host = "varnish-test-1.linpro.no";
 	const char *url_pattern = "/cgi-bin/recursor.pl?foo=%d";
 	int ctr = MAX_CTR * 10;
+	int depth = 1;
 
-	while ((opt = getopt(argc, argv, "c:hv")) != -1)
+	while ((opt = getopt(argc, argv, "c:d:hrv")) != -1)
 		switch (opt) {
 		case 'c':
 			ctr = atoi(optarg);
 			break;
+		case 'd':
+			depth = atoi(optarg);
+			break;
 		case 'h':
 			method = HEAD;
+			break;
+		case 'r':
+			random_order++;
 			break;
 		case 'v':
 			verbose++;
@@ -166,6 +187,9 @@ main(int argc, char *argv[])
 	if (argc != 0)
 		usage();
 
+	if (random_order)
+		srandomdev();
+
 	sd = open_socket("varnish-test-2.linpro.no", "8080");
 	if ((f = fdopen(sd, "w+")) == NULL)
 		err(1, "fdopen()");
@@ -174,9 +198,14 @@ main(int argc, char *argv[])
 	signal(SIGINT, handler);
 	signal(SIGTERM, handler);
 	gettimeofday(&start, NULL);
-	for (i = 0; i < ctr && !got_sig; ++i) {
-		snprintf(url, sizeof url, url_pattern, i % MAX_CTR);
-		send_request(f, method, host, url);
+	while (respcount < ctr && !got_sig) {
+		while (reqcount < ctr && reqcount - respcount < depth && !got_sig) {
+			int serial = (random_order ? random() : reqcount) % MAX_CTR;
+			if (!verbose && (random_order || (reqcount % 29) == 0))
+				fprintf(stderr, "\r%d ", serial);
+			snprintf(url, sizeof url, url_pattern, serial);
+			send_request(f, method, host, url);
+		}
 		receive_response(f, method);
 	}
 	gettimeofday(&stop, NULL);
@@ -185,7 +214,7 @@ main(int argc, char *argv[])
 	elapsed = (stop.tv_sec * 1000000.0 + stop.tv_usec) -
 	    (start.tv_sec * 1000000.0 + start.tv_usec);
 	fprintf(stderr, "%d requests in %.3f seconds (%d rps)\n",
-	    i, elapsed / 1000000, (int)(i / (elapsed / 1000000)));
+	    reqcount, elapsed / 1000000, (int)(reqcount / (elapsed / 1000000)));
 
 	exit(got_sig);
 }
