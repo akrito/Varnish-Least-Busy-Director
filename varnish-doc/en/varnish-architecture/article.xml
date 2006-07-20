@@ -13,88 +13,198 @@
     <title>Application structure</title>
 
     <section>
-      <title>Components</title>
+      <title>Overview</title>
 
-      <para>This section lists the major components in Varnish.</para>
+      <para>
+	The Varnish binary contains code for two co-operating
+	processes: the manager and the cache engine.
+      </para>
 
+      <para>
+	The manager process is what takes control when the binary
+	is executed, and after parsing command line arguments it
+	will compile the VCL code and fork(2) a child process which
+	executes the cache-engine code.
+      </para>
+
+      <para>
+	A pipe connects the two processes and allows the manager
+	to relay and inject CLI commands to the cache process.
+      </para>
+
+    </section>
+
+    <section>
+      <title>Manager Process Components</title>
+      <para>
+	The manager process is a basic multiplexing process, of relatively
+	low complexity.  The only major component apart from the CLI stream
+	multiplexer is the VCL compiler.
+      </para>
+
+    <section>
+      <title>Cache Process Components</title>
+
+      <para>
+	The cache process is where all the fun happens and its components
+	have been constructed for maximum efficiency at the cost of some
+	simplicity of structure.
+      </para>
+	
       <section>
-	<title>Listener</title>
+	<title>Acceptor</title>
 
-	<para>The Listener monitors the listening socket and accepts
-	incoming client connections.  Once the connection is
-	established, it is passed to the Accepter.</para>
+	<para>
+	  The Acceptor monitors the listening sockets and accepts
+	  incoming client connections.  For each connection a session
+	  is created and once enough bytes have been received to indicate
+	  a valid HTTP request header the established, the session is
+	  passed to the Worker Pool for processing.
+	</para>
 
-	<para>The Listener should take advantage of accept filters or
-	similar technologies on systems where they are
-	available.</para>
+	<para>
+	  If supported by the platform, the Acceptor will use the
+	  accept filters facility.
+	</para>
       </section>
 
       <section>
-	<title>Accepter</title>
+	<title>Worker Pool</title>
 
-	<para>The Accepter reads an HTTP request from a client
-	connection.  It parses the request line and header only to the
-	extent necessary to establish well-formedness and determine
-	the requested URL.</para>
+	<para>
+	  The Worker Pool maintains a pool of worker threads which
+	  can process requests through the State engine.  Threads
+	  are created as necessary if possible, and if they have seen
+	  no work for a preconfigured amount of time, they will
+	  selfdestruct to reduce resource usage.
+	</para>
 
-	<para>The Accepter then queries the Keeper about the status of
-	the requested document (identified by its full URL).  If the
-	document is present and valid in the cache, the request is
-	passed directly to a Sender.  Otherwise, it is passed to a
-	Retriever queue.</para>
+	<para>
+	  Threads are used in most-recently-used order to improve
+	  cache efficiencies and minimize working set.
+	</para>
       </section>
 
       <section>
-	<title>Keeper</title>
+	<title>State Engine</title>
 
-	<para>The Keeper manages the document cache. XXX</para>
+	<para>
+	  The state engine is responsible for taking each request
+	  through the steps.  This is done with a simple finite
+	  state engine which is able to give up the worker thread
+	  if the session is waiting for reasons where having the
+	  worker thread is not necessary for the waiting.
+	</para>
+	<para>
+	  XXX: either list the major steps from cache_central.c here
+	  or have a major section on the flow after the components.
+	  (phk prefers the latter.)
+	</para>
       </section>
 
       <section>
-	<title>Sender</title>
+	<title>Hash and Hash methods</title>
 
-	<para>The Sender transfers the contents of the requested
-	document to the client.  It examines the HTTP request header
-	to determine the correct way in which to do this – Range,
-	If-Modified-Since, Content-Encoding and other options may
-	affect the type and amount of data transferred.</para>
-
-	<para>There may be multiple concurrent Sender threads.</para>
+	<para>
+	  The cache of objects are hashed using a pluggable algorithm.
+	  A central hash management does the high level work while
+	  the actual lookup is done by the pluggable method.
+	</para>
       </section>
 
       <section>
-	<title>Retriever</title>
+	<title>Storage and Storage methods</title>
 
-	<para>The Retriever is responsible for retrieving documents
-	from the content servers.  It is triggered either by an
-	Accepter trying to satisfy a request for a document which is
-	not in the cache, or by the Janitor when a “hot” document is
-	nearing expiry.  Either way, there may be a queue of requests
-	waiting for the document to arrive; when it does, the
-	Retriever passes those requests to a Sender.</para>
-
-	<para>There may be multiple concurrent Retriever
-	threads.</para>
+	<para>
+	  Like hashing, storage is split into a high level layer
+	  which calls into pluggable methods.
+	</para>
       </section>
 
       <section>
-	<title>Janitor</title>
+	<title>Pass and Pipe modes</title>
 
-	<para>The Janitor keeps track of the expiry time of cached
-	documents and attempts to retrieve fresh copies of documents
-	which are soon to expire.</para>
+	<para>
+	  Requests which the can not or should not be handled by
+	  Varnish can be either passed through or piped through to
+	  the backend.
+	</para>
+
+	<para>
+	  Passing acts on a per-request basis and tries to make the
+	  connection to both the client and the backend reusable.
+	</para>
+
+	<para>
+	  Piping acts as a transparent tunnel and whatever happens
+	  for the rest of the lifetime of the client and backend
+	  connection is not interpreted by Varnish.
+	</para>
       </section>
 
       <section>
-	<title>Logger</title>
+	<title>Backend sessions</title>
 
-	<para>The Logger keeps logs of various types of events in
-	circular shared-memory buffers.  See <xref
-	linkend="sect.logging"/> for details.</para>
+	<para>
+	  Connections to the backend are managed in a pool by the
+	  backend session module.
+	</para>
 
-	<para>It is the responsibility of each module to feed relevant
-	log data to the Logger.</para>
       </section>
+
+      <section>
+	<title>Logging and Statistics</title>
+
+	<para>
+	  Logging and statistics is done through a shared memory
+	  data segment to which other processes can attach to subscribe
+	  to the data.  A library provides the documented interface
+	  for this.
+	</para>
+
+	<para>
+	  Logging is done in round-robin form and is therefore unaffected
+	  by disk-I/O or other expensive log-handling.
+	</para>
+      </section>
+
+      <section>
+	<title>Purge/Ban procssing</title>
+	<para>
+	  When a purge is requested via the CLI interface, the regular
+	  expression is added to the purge list, and all requests are
+	  checked against this list before they are served from cache.
+	  The most recently checked purge is cached in the objects to
+	  avoid repeated checks against the same expression.
+	</para>
+
+      <section>
+	<title>VCL calls and VCL runtime</title>
+	<para>
+	  The state engine uses calls to VCL functions to determine
+	  desired processing of each request.  The compiled VCL code 
+	  is loaded as a dynamic object and executes at the speed
+	  of compiled code.
+	</para>
+	<para>
+	  The VCL and VRT code is responsible for managing the VCL
+	  codes loaded and to provide the proper runtime environement
+	  for them.
+	</para>
+      </section>
+
+      <section>
+	<title>Expiry (and prefetch)</title>
+
+	<para>
+	  Objects in the cache are sorted in "earliest expiry" order
+	  in a binary heap which is monitored.  When an object is
+	  a configurable number of seconds from expiring the VCL
+	  code will be asked to determine if the object should be
+	  discarded or prefetched.  (Prefetch is not yet implemented).
+	</para>
+      </section>
+
     </section>
   </section>
 
