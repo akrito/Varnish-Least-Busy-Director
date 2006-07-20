@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="docbook-html.xsl"?>
 <?xml-stylesheet type="text/css" href="../../share/docbook-xml.css"?>
 <!DOCTYPE article
  PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
@@ -31,7 +32,6 @@
 	A pipe connects the two processes and allows the manager
 	to relay and inject CLI commands to the cache process.
       </para>
-
     </section>
 
     <section>
@@ -41,6 +41,7 @@
 	low complexity.  The only major component apart from the CLI stream
 	multiplexer is the VCL compiler.
       </para>
+    </section>
 
     <section>
       <title>Cache Process Components</title>
@@ -50,7 +51,7 @@
 	have been constructed for maximum efficiency at the cost of some
 	simplicity of structure.
       </para>
-	
+
       <section>
 	<title>Acceptor</title>
 
@@ -95,6 +96,7 @@
 	  if the session is waiting for reasons where having the
 	  worker thread is not necessary for the waiting.
 	</para>
+
 	<para>
 	  XXX: either list the major steps from cache_central.c here
 	  or have a major section on the flow after the components.
@@ -170,6 +172,7 @@
 
       <section>
 	<title>Purge/Ban procssing</title>
+
 	<para>
 	  When a purge is requested via the CLI interface, the regular
 	  expression is added to the purge list, and all requests are
@@ -177,15 +180,18 @@
 	  The most recently checked purge is cached in the objects to
 	  avoid repeated checks against the same expression.
 	</para>
+      </section>
 
       <section>
 	<title>VCL calls and VCL runtime</title>
+
 	<para>
 	  The state engine uses calls to VCL functions to determine
-	  desired processing of each request.  The compiled VCL code 
+	  desired processing of each request.  The compiled VCL code
 	  is loaded as a dynamic object and executes at the speed
 	  of compiled code.
 	</para>
+
 	<para>
 	  The VCL and VRT code is responsible for managing the VCL
 	  codes loaded and to provide the proper runtime environement
