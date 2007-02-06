@@ -32,51 +32,67 @@ package Varnish::Test::Object;
 
 use strict;
 use base 'Varnish::Test::Context';
-use Varnish::Test::Code;
 
-sub new($$;$) {
+sub new($$$;$) {
     my $this = shift;
     my $class = ref($this) || $this;
+    my $name = shift;
+    my $children = shift;
     my $parent = shift;
 
-    my $self = Varnish::Test::Context->new($parent);
-    $self->{'code'} = [];
+    my $self = new Varnish::Test::Context($name, $parent);
     bless($self, $class);
 
-    $self->_init();
+    for my $child (@$children) {
+	$child->set_parent($self);
+    }
 
-    $self->_parse($_[0])
-	if (@_);
+    $self->{'children'} = $children;
+    $self->{'finished'} = 0;
+    $self->{'return'} = undef;
+    $self->_init;
 
     return $self;
 }
 
 sub _init($) {
-    my $self = shift;
-
-    # nothing
 }
 
-sub _parse($$) {
+sub run($) {
     my $self = shift;
-    my $t = shift;
 
-    $t->shift_keyword(lc($self->type));
-    $self->name($t->shift("Identifier")->value);
-    $t->shift("LeftBrace");
-    while (!$t->peek()->is("RightBrace")) {
-	push(@{$self->{'code'}}, Varnish::Test::Code->new($self, $t));
-# 	$token = $t->shift("Identifier");
-# 	my $key = $token->value;
-# 	$token = $t->shift("Assign");
-# 	$token = $t->shift("Integer", "Real", "String");
-# 	my $value = $token->value;
-# 	$token = $t->shift("SemiColon");
-# 	$t->warn("multiple assignments to $self->{'name'}.$key")
-# 	    if ($self->has($key));
-# 	$self->set($key, $value);
+    return if $self->{'finished'};
+
+    foreach my $child (@{$self->{'children'}}) {
+	$child->run($self) unless $child->{'finished'};
+	return unless $child->{'finished'};
+	$self->{'return'} = $child->{'return'};
     }
-    $t->shift("RightBrace");
+
+    $self->{'finished'} = 1;
+}
+
+sub shutdown($) {
+    my $self = shift;
+
+    foreach my $child (@{$self->{'children'}}) {
+	$child->shutdown;
+    }
+}
+
+sub get_mux($) {
+    my $self = shift;
+    return $self->{'mux'} || $self->{'parent'} && $self->{'parent'}->get_mux;
+}
+
+sub super_run($) {
+    my $self = shift;
+    if (defined($self->{'parent'})) {
+	$self->{'parent'}->super_run;
+    }
+    else {
+	$self->run;
+    }
 }
 
 1;

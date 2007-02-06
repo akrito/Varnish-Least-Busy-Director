@@ -31,6 +31,6 @@
 package Varnish::Test::Response;
 
 use strict;
-use base 'Varnish::Test::Object';
+use base 'Varnish::Test::Message';
 
 1;

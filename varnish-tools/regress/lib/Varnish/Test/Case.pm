@@ -33,4 +33,12 @@ package Varnish::Test::Case;
 use strict;
 use base 'Varnish::Test::Object';
 
+sub run($) {
+    my $self = shift;
+
+    print "Running case \"$self->{name}\"...\n";
+
+    &Varnish::Test::Object::run($self);
+}
+
 1;

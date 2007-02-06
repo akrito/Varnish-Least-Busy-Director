@@ -38,19 +38,39 @@ use strict;
 # parent, from which it inherits variables and procedures.
 #
 
-sub new($;$) {
+sub new($$;$) {
     my $this = shift;
     my $class = ref($this) || $this;
+    my $name = shift;
     my $parent = shift;
 
     my $self = {
-	'parent'	=> $parent,
+	'name'		=> $name,
 	'vars'		=> { },
-	'procs'		=> { },
     };
     bless($self, $class);
 
+    $self->set_parent($parent);
+
     return $self;
+}
+
+sub set_parent($$) {
+    my $self = shift;
+    my $parent = shift;
+
+    if (defined($self->{'name'})) {
+	if (defined($self->{'parent'})) {
+	    # Unlink from old parent.
+	    $self->{'parent'}->unset($self->{'name'});
+	}
+	if (defined($parent)) {
+	    # Link to new parent.
+	    $parent->set($self->{'name'}, $self);
+	}
+    }
+
+    $self->{'parent'} = $parent;
 }
 
 sub parent($) {
@@ -63,12 +83,6 @@ sub vars($) {
     my $self = shift;
 
     return $self->{'vars'};
-}
-
-sub procs($) {
-    my $self = shift;
-
-    return $self->{'procs'};
 }
 
 sub set($$$) {
@@ -85,12 +99,19 @@ sub set($$$) {
     return $value;
 }
 
+sub unset($$) {
+    my $self = shift;
+    my $key = shift;
+
+    delete $self->vars->{$key} if exists($self->vars->{$key});
+}
+
 sub has($$) {
     my $self = shift;
     my $key = shift;
 
     return exists($self->{'vars'}->{$key}) ||
-	$self->parent->has($key);
+	$self->parent && $self->parent->has($key);
 }
 
 sub get($$) {

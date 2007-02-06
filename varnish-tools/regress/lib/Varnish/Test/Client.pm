@@ -35,21 +35,64 @@ use base 'Varnish::Test::Object';
 use IO::Socket;
 use URI;
 
-sub request($$$) {
+sub _init($) {
     my $self = shift;
-    my $server = shift;
-    my $url = shift;
+
+    $self->set('protocol', '1.1');
+    $self->set('request', \&request);
+}
+
+sub request($$) {
+    my $self = shift;
+    my $invocation = shift;
+
+    my $server = $invocation->{'args'}[0]->{'return'};
+    my $uri = $invocation->{'args'}[1]->{'return'};
 
     (defined($server) &&
      ($server->isa('Varnish::Test::Accelerator') ||
       $server->isa('Varnish::Test::Server')))
 	or die("invalid server\n");
-    $url = URI->new($url)
-	or die("invalid URL\n");
 
-    # GET $uri->path_query HTTP/$self->{'protocol'}
-    # Host: $uri->host_port
-    # Connection: xxx
+    $uri = new URI($uri)
+	or die("invalid URI\n");
+
+    my $fh = new IO::Socket::INET(Proto    => 'tcp',
+				  PeerAddr => $server->get('address'),
+				  PeerPort => $server->get('port'))
+	or die "socket: $@";
+
+    my $mux = $self->get_mux;
+    $mux->add($fh);
+    $mux->set_callback_object($self, $fh);
+
+    $mux->write($fh, "Hello\r\n");
+    print "Client sent: Hello\n";
+
+    $self->{'request'} = $invocation;
+}
+
+sub mux_input($$$$) {
+    my $self = shift;
+    my $mux = shift;
+    my $fh = shift;
+    my $data = shift;
+
+    $self->{'request'}->{'return'} = $$data;
+    print "Client got: $$data";
+    $$data = "";
+    $self->{'request'}->{'finished'} = 1;
+    delete $self->{'request'};
+    $self->super_run;
+}
+
+sub mux_eof($$$$) {
+    my $self = shift;
+    my $mux = shift;
+    my $fh = shift;
+    my $data = shift;
+
+    $mux->close($fh);
 }
 
 1;

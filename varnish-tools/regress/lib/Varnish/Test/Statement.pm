@@ -28,64 +28,41 @@
 # $Id$
 #
 
-package Varnish::Test::Server;
+package Varnish::Test::Statement;
 
 use strict;
 use base 'Varnish::Test::Object';
-use IO::Socket;
 
-sub _init($) {
-    my $self = shift;
+sub new($$) {
+    my $this = shift;
+    my $class = ref($this) || $this;
+    my $args = shift;
 
-    $self->set('address', 'localhost');
-    $self->set('port', '9001');
+    my $children = [];
+
+    if (@$args > 1 && $$args[1] eq '=') {
+	my $self = new Varnish::Test::Object(undef, [$$args[2]]);
+	bless($self, $class);
+
+	$self->{'lhs'} = $$args[0];
+
+	return $self;
+    }
+    else {
+	return $$args[0];
+    }
 }
 
-sub run($) {
+sub run($$) {
     my $self = shift;
 
     return if $self->{'finished'};
 
     &Varnish::Test::Object::run($self);
 
-    my $fh = new IO::Socket::INET(Proto     => 'tcp',
-				  LocalAddr => $self->get('address'),
-				  LocalPort => $self->get('port'),
-				  Listen    => 4)
-	or die "socket: $@";
-
-    $self->{'fh'} = $fh;
-
-    my $mux = $self->get_mux;
-    $mux->listen($fh);
-    $mux->set_callback_object($self, $fh);
-}
-
-sub shutdown($) {
-    my $self = shift;
-
-    $self->get_mux->close($self->{'fh'});
-}
-
-sub mux_connection($$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-
-    $mux->set_callback_object($self, $fh);
-}
-
-sub mux_input($$$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-    my $data = shift;
-
-    print "Server got: $$data";
-    $$data = "";
-    $mux->write($fh, "HTTP/1.1 200 OK\r\n");
-    print "Server sent: HTTP/1.1 200 OK\n";
-    $mux->shutdown($fh, 1);
+    if ($self->{'finished'}) {
+	$self->{'lhs'}->set_value($self, $self->{'return'});
+    }
 }
 
 1;

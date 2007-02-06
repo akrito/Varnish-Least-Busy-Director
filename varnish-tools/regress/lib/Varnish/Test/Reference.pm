@@ -28,40 +28,78 @@
 # $Id$
 #
 
-package Varnish::Test::Code;
+package Varnish::Test::Reference;
 
 use strict;
 
-sub new($$$) {
+sub new($$) {
     my $this = shift;
     my $class = ref($this) || $this;
-    my $context = shift;
+    my $symbols = shift;
 
     my $self = {
-	'context'	=> $context,
+	'symbols' => $symbols,
     };
     bless($self, $class);
-
-    $self->_parse(shift)
-	if (@_);
 
     return $self;
 }
 
-sub _parse($$) {
+sub as_string($) {
     my $self = shift;
-    my $t = shift;
-
-    print STDERR "\t";
-    while (!$t->peek()->is("SemiColon")) {
-	print STDERR " " . $t->peek()->value();
-	$t->shift();
-    }
-    $t->shift("SemiColon");
-    print STDERR ";\n";
+    return join('.', @{$self->{'symbols'}});
 }
 
-sub run($) {
+sub _find_context($$) {
+    my $self = shift;
+    my $context = shift;
+
+    foreach my $symbol (@{$self->{'symbols'}}[0..$#{$self->{'symbols'}}-1]) {
+	$context = $context->get($symbol);
+	if (!(ref($context) =~ /^Varnish::Test::\w+$/
+	      && $context->isa('Varnish::Test::Context'))) {
+	    return undef;
+	}
+    }
+
+    return $context;
+}
+
+sub get_value($$) {
+    my $self = shift;
+    my $context = shift;
+
+    $context = $self->_find_context($context);
+    if (defined($context)) {
+	return $context->get($self->{'symbols'}[$#{$self->{'symbols'}}]);
+    }
+    else {
+	return undef;
+    }
+}
+
+sub set_value($$) {
+    my $self = shift;
+    my $context = shift;
+    my $value = shift;
+
+    $context = $self->_find_context($context);
+    if (defined($context)) {
+	$context->set($self->{'symbols'}[$#{$self->{'symbols'}}], $value);
+    }
+    else {
+	die "Cannot find containing context for ", join('.', @{$self->{'symbols'}}), ".\n";
+    }
+}
+
+sub get_function($$) {
+    my $self = shift;
+    my $context = shift;
+
+    $context = $self->_find_context($context);
+    if (defined($context)) {
+	return ($context->get($self->{'symbols'}[$#{$self->{'symbols'}}]), $context);
+    }
 }
 
 1;

@@ -31,84 +31,89 @@
 package Varnish::Test;
 
 use strict;
-use base 'Varnish::Test::Context';
+use base 'Varnish::Test::Object';
 use Varnish::Test::Accelerator;
 use Varnish::Test::Case;
 use Varnish::Test::Client;
 use Varnish::Test::Server;
-use Varnish::Test::Tokenizer;
+use Varnish::Test::Parser;
+use IO::Multiplex;
+
+use Data::Dumper;
 
 sub new($;$) {
     my $this = shift;
     my $class = ref($this) || $this;
+    my $fn = shift;
 
-    my $self = Varnish::Test::Context->new();
+    my $self = new Varnish::Test::Object;
     bless($self, $class);
-    $self->parse($_[0])
-	if (@_);
+
+    $self->{'mux'} = new IO::Multiplex;
+
+    if ($fn) {
+	$self->parse($fn);
+    }
 
     return $self;
-}
-
-sub _parse_ticket($$) {
-    my $self = shift;
-    my $t = shift;
-
-    $t->shift_keyword("ticket");
-    push(@{$self->{'ticket'}}, $t->shift("Integer"));
-    $t->shift("SemiColon");
-}
-
-sub _parse_test($$) {
-    my $self = shift;
-    my $t = shift;
-
-    my $token = $t->shift_keyword("test");
-    $token = $t->shift("String");
-    $self->{'descr'} = $token->value;
-    $token = $t->shift("LeftBrace");
-    for (;;) {
-	$token = $t->peek();
-	last if $token->is("RightBrace");
-	if (!$token->is("Keyword")) {
-	    $t->die("expected keyword, got " . ref($token));
-	} elsif ($token->value eq 'ticket') {
-	    $self->_parse_ticket($t);
-	} elsif ($token->value eq 'accelerator') {
-	    my $x = Varnish::Test::Accelerator->new($self, $t);
-	    $t->die("duplicate declaration of " . $x->name)
-		if exists($self->{'vars'}->{$x->name});
-	    $self->set($x->name, $x);
-	} elsif ($token->value eq 'client') {
-	    my $x = Varnish::Test::Client->new($self, $t);
-	    $t->die("duplicate declaration of " . $x->name)
-		if exists($self->{'vars'}->{$x->name});
-	    $self->set($x->name, $x);
-	} elsif ($token->value eq 'server') {
-	    my $x = Varnish::Test::Server->new($self, $t);
-	    $t->die("duplicate declaration of " . $x->name)
-		if exists($self->{'vars'}->{$x->name});
-	    $self->set($x->name, $x);
-	} elsif ($token->value eq 'case') {
-	    my $x = Varnish::Test::Case->new($self, $t);
-	} else {
-	    $t->die("unexpected keyword " . $token->value);
-	}
-    }
-    $token = $t->shift("RightBrace");
 }
 
 sub parse($$) {
     my $self = shift;
     my $fn = shift;
 
-    my $t = Varnish::Test::Tokenizer->new($fn);
-    $self->_parse_test($t);
+    local $/;
+    open(SRC, "<", $fn) or die("$fn: $!\n");
+    my $src = <SRC>;
+    close(SRC);
+
+    $::RD_HINT = 1;
+    my $parser = new Varnish::Test::Parser;
+    if (!defined($parser)) {
+	die("Error generating parser.");
+    }
+    my $tree = $parser->module($src);
+    if (!defined($tree)) {
+	die("Parsing error.");
+    }
+
+    print "###### SYNTAX TREE BEGIN ######\n";
+    print Dumper $tree if defined($tree->{'body'});
+    print "###### SYNTAX TREE END ######\n";
+
+    $self->{'objects'} = [];
+
+    foreach my $object (@{$tree->{'body'}}) {
+	if (ref($object) eq 'ARRAY') {
+	    $self->{$$object[0]} = $$object[1];
+	}
+	elsif (ref($object)) {
+	    push(@{$self->{'children'}}, $object);
+	    $object->set_parent($self);
+	}
+    }
+}
+
+sub main($) {
+    my $self = shift;
+
+    while (!$self->{'finished'}) {
+	&Varnish::Test::Object::run($self);
+	print "Entering IO::Multiplex loop.\n";
+	$self->{'mux'}->loop;
+    }
+
+    print "DONE.\n";
 }
 
 sub run($) {
     my $self = shift;
 
+    return if $self->{'finished'};
+
+    &Varnish::Test::Object::run($self);
+
+    $self->shutdown if $self->{'finished'};
 }
 
 1;

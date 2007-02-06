@@ -34,6 +34,7 @@ use Varnish::Test;
 use Data::Dumper;
 
 MAIN:{
-    my $test = Varnish::Test->new($ARGV[0]);
+    my $test = new Varnish::Test($ARGV[0]);
     #print STDERR Dumper($test);
+    $test->main;
 }

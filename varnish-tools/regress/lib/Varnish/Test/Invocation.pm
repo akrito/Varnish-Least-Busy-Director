@@ -28,17 +28,24 @@
 # $Id$
 #
 
-package Varnish::Test::Server;
+package Varnish::Test::Invocation;
 
 use strict;
 use base 'Varnish::Test::Object';
-use IO::Socket;
 
-sub _init($) {
-    my $self = shift;
+sub new($$$) {
+    my $this = shift;
+    my $class = ref($this) || $this;
+    my $func_id = shift;
+    my $args = shift;
 
-    $self->set('address', 'localhost');
-    $self->set('port', '9001');
+    my $self = new Varnish::Test::Object(undef, $args);
+    bless($self, $class);
+
+    $self->{'func_id'} = $func_id;
+    $self->{'args'} = $args;
+
+    return $self;
 }
 
 sub run($) {
@@ -46,46 +53,17 @@ sub run($) {
 
     return if $self->{'finished'};
 
-    &Varnish::Test::Object::run($self);
+    &Varnish::Test::Object::run($self) unless $self->{'in_call'};
 
-    my $fh = new IO::Socket::INET(Proto     => 'tcp',
-				  LocalAddr => $self->get('address'),
-				  LocalPort => $self->get('port'),
-				  Listen    => 4)
-	or die "socket: $@";
-
-    $self->{'fh'} = $fh;
-
-    my $mux = $self->get_mux;
-    $mux->listen($fh);
-    $mux->set_callback_object($self, $fh);
-}
-
-sub shutdown($) {
-    my $self = shift;
-
-    $self->get_mux->close($self->{'fh'});
-}
-
-sub mux_connection($$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-
-    $mux->set_callback_object($self, $fh);
-}
-
-sub mux_input($$$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-    my $data = shift;
-
-    print "Server got: $$data";
-    $$data = "";
-    $mux->write($fh, "HTTP/1.1 200 OK\r\n");
-    print "Server sent: HTTP/1.1 200 OK\n";
-    $mux->shutdown($fh, 1);
+    if ($self->{'finished'}) {
+	$self->{'finished'} = 0;
+	if (!$self->{'in_call'}) {
+	    $self->{'in_call'} = 1;
+	    my ($func_ptr, $func_context) = $self->{'func_id'}->get_function($self);
+	    print "Calling " . $self->{'func_id'}->as_string, "\n";
+	    &$func_ptr($func_context, $self);
+	}
+    }
 }
 
 1;
