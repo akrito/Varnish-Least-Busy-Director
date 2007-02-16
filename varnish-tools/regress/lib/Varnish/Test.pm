@@ -77,9 +77,9 @@ sub parse($$) {
 	die("Parsing error.");
     }
 
-    print "###### SYNTAX TREE BEGIN ######\n";
-    print Dumper $tree if defined($tree->{'body'});
-    print "###### SYNTAX TREE END ######\n";
+    print STDERR "###### SYNTAX TREE BEGIN ######\n";
+    print STDERR Dumper $tree if defined($tree->{'body'});
+    print STDERR "###### SYNTAX TREE END ######\n";
 
     $self->{'objects'} = [];
 
@@ -99,11 +99,11 @@ sub main($) {
 
     while (!$self->{'finished'}) {
 	&Varnish::Test::Object::run($self);
-	print "Entering IO::Multiplex loop.\n";
+	print STDERR "Entering IO::Multiplex loop.\n";
 	$self->{'mux'}->loop;
     }
 
-    print "DONE.\n";
+    print STDERR "DONE.\n";
 }
 
 sub run($) {

@@ -38,6 +38,8 @@ use URI;
 sub _init($) {
     my $self = shift;
 
+    &Varnish::Test::Object::_init($self);
+
     $self->set('protocol', '1.1');
     $self->set('request', \&request);
 }
@@ -66,8 +68,7 @@ sub request($$) {
     $mux->add($fh);
     $mux->set_callback_object($self, $fh);
 
-    $mux->write($fh, "Hello\r\n");
-    print "Client sent: Hello\n";
+    $mux->write($fh, "GET / HTTP/" . eval($self->get('protocol')) . "\r\n\r\n");
 
     $self->{'request'} = $invocation;
 }
@@ -77,9 +78,16 @@ sub mux_input($$$$) {
     my $mux = shift;
     my $fh = shift;
     my $data = shift;
+    my $response = new Varnish::Test::Context('response', $self);
 
     $self->{'request'}->{'return'} = $$data;
-    print "Client got: $$data";
+    if ($$data =~ 'HTTP/1.1') {
+	$response->set('protocol', '1.1');
+    }
+    else {
+	$response->set('protocol', '1.0');
+    }
+    print STDERR "Client got: $$data";
     $$data = "";
     $self->{'request'}->{'finished'} = 1;
     delete $self->{'request'};

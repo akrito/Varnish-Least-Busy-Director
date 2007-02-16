@@ -60,7 +60,7 @@ sub run($) {
 	if (!$self->{'in_call'}) {
 	    $self->{'in_call'} = 1;
 	    my ($func_ptr, $func_context) = $self->{'func_id'}->get_function($self);
-	    print "Calling " . $self->{'func_id'}->as_string, "\n";
+	    # print STDERR "Calling " . $self->{'func_id'}->as_string, "\n";
 	    &$func_ptr($func_context, $self);
 	}
     }

@@ -33,12 +33,43 @@ package Varnish::Test::Case;
 use strict;
 use base 'Varnish::Test::Object';
 
+sub _init($) {
+    my $self = shift;
+
+    &Varnish::Test::Object::_init($self);
+
+    $self->set('assert', \&assert);
+}
+
 sub run($) {
     my $self = shift;
 
-    print "Running case \"$self->{name}\"...\n";
+    if (!defined($self->{'started'})) {
+	print "Start of CASE \"$self->{name}\"...\n";
+	$self->{'started'} = 1;
+    }
 
     &Varnish::Test::Object::run($self);
+
+    if ($self->{'finished'}) {
+	print "End of CASE \"$self->{name}\".\n";
+    }
+}
+
+sub assert($$) {
+    my $self = shift;
+    my $invocation = shift;
+
+    my $bool = $invocation->{'args'}[0]->{'return'};
+
+    if (!$bool) {
+	print "  ASSERTION DOES NOT HOLD.\n";
+    }
+    else {
+	print "  Assertion holds.\n";
+    }
+
+    $invocation->{'finished'} = 1;
 }
 
 1;

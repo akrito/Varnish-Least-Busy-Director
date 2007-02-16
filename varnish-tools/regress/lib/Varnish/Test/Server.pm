@@ -37,6 +37,8 @@ use IO::Socket;
 sub _init($) {
     my $self = shift;
 
+    &Varnish::Test::Object::_init($self);
+
     $self->set('address', 'localhost');
     $self->set('port', '9001');
 }
@@ -81,10 +83,14 @@ sub mux_input($$$$) {
     my $fh = shift;
     my $data = shift;
 
-    print "Server got: $$data";
-    $$data = "";
-    $mux->write($fh, "HTTP/1.1 200 OK\r\n");
-    print "Server sent: HTTP/1.1 200 OK\n";
+    $$data = ""; # Pretend we read the data.
+
+    my $response = "HTTP/" . eval($self->get('protocol')) . " 200 OK\r\n"
+	. "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+	. eval($self->get('data')) . "\n";
+
+    $mux->write($fh, $response);
+    print STDERR "Server sent: " . $response;
     $mux->shutdown($fh, 1);
 }
 

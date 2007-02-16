@@ -53,6 +53,8 @@ sub new($$) {
     }
 }
 
+use Data::Dumper;
+
 sub run($$) {
     my $self = shift;
 
@@ -61,7 +63,7 @@ sub run($$) {
     &Varnish::Test::Object::run($self);
 
     if ($self->{'finished'}) {
-	$self->{'lhs'}->set_value($self, $self->{'return'});
+	$self->{'lhs'}->set_value($self->{'parent'}, $self->{'return'});
     }
 }
 

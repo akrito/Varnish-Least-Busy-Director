@@ -73,9 +73,11 @@ sub run($) {
 
     &Varnish::Test::Object::run($self);
 
+    my $expr = '';
+    my $seen_string = 0;
+    my $relational = 0;
+
     if ($self->{'finished'} && defined($self->{'terms'})) {
-	my $expr = '';
-	my $return_as_string = 0;
 
 	foreach my $term (@{$self->{'terms'}}) {
 	    my $term_value;
@@ -89,6 +91,20 @@ sub run($) {
 		}
 	    }
 	    else {
+		if ($term eq '==' || $term eq '!='
+		    || $term eq '<=' || $term eq '>='
+		    || $term eq '<' || $term eq '>') {
+		    $relational = 1;
+
+		    if ($seen_string) {
+			if ($term eq '==') {
+			    $term = 'eq';
+			}
+			elsif ($term eq '!=') {
+			    $term = 'ne';
+			}
+		    }
+		}
 		$term_value = $term;
 	    }
 
@@ -98,12 +114,12 @@ sub run($) {
 		    return;
 		}
 		else {
-		    die "Found object/context reference in complex expression.";
+		    $term_value = '"' . $term_value . '"';
 		}
 	    }
 
 	    if ($term_value =~ /^".*"$/s) {
-		$return_as_string = 1;
+		$seen_string = 1;
 	    }
 
 	    $expr .= $term_value;
@@ -111,9 +127,11 @@ sub run($) {
 
 	($expr) = $expr =~ /(.*)/s;
 
+	# print STDERR "Evaling: $expr\n";
+
 	$expr = eval $expr;
 
-	if ($return_as_string) {
+	if ($seen_string && !$relational) {
 	    $expr = '"' . $expr . '"';
 	}
 

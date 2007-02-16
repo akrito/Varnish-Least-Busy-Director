@@ -1,0 +1,23 @@
+* Revise class hierarchy, possibly switching around
+  Varnish::Test::Context and Varnish::Test::Object since we might like
+  to inherit the properties of Object without getting the properties
+  of Context, in classes like Varnish::Test::Statement,
+  Varnish::Test::Expression, and Varnish::Test::Invocation.
+
+* Actually handle HTTP by utilizing Varnish::Test::Message (and
+  the sub-classes Varnish::Test::Request and Varnish::Test::Response)
+  as variables that live inside server and client objects.
+
+* Extend the language (syntax and semantics), to make it more
+  expressive and useful.
+
+* POD-ify Perl-code.
+
+* Fix IO::Multiplex-related warnings:
+
+  · Use of uninitialized value in unpack at /usr/share/perl5/IO/Multiplex.pm line 351.
+    Use of uninitialized value in numeric eq (==) at /usr/share/perl5/IO/Multiplex.pm line 351.
+
+  · Use of freed value in iteration at /usr/share/perl5/IO/Multiplex.pm line 721.
+
+  (Is this IO::Multiplex' or our fault?)
