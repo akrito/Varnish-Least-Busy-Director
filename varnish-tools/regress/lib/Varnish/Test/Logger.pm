@@ -28,9 +28,28 @@
 # $Id$
 #
 
-package Varnish::Test::Message;
+package Varnish::Test::Logger;
 
-use strict;
-use base 'Varnish::Test::Object';
+sub new($;$) {
+    my ($this, $prefix) =  @_;
+    my $class = ref($this) || $this;
+
+    my $self = bless({ 'prefix' => $prefix || '' }, $class);
+}
+
+sub write($$;$) {
+    my ($self, $data, $extra_prefix) = @_;
+
+    my $prefix = $self->{'prefix'};
+    $prefix .= ': ' . $extra_prefix if defined($extra_prefix);
+
+    if ($prefix) {
+	$data =~ s/^/$prefix: /gm;
+    }
+
+    $data =~ s/\n?$/\n/;
+
+    print STDERR $data;
+}
 
 1;

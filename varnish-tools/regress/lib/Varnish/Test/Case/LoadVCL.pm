@@ -28,71 +28,27 @@
 # $Id$
 #
 
-package Varnish::Test::Object;
+package Varnish::Test::Case::LoadVCL;
 
 use strict;
-use base 'Varnish::Test::Context';
+use base 'Varnish::Test::Case';
 
-sub new($$$;$) {
-    my $this = shift;
-    my $class = ref($this) || $this;
-    my $name = shift;
-    my $children = shift;
-    my $parent = shift;
+use Carp 'croak';
 
-    my $self = new Varnish::Test::Context($name, $parent);
-    bless($self, $class);
+sub testLoadVCL($$) {
+    my ($self, $vcl) = @_;
 
-    for my $child (@$children) {
-	$child->set_parent($self);
-    }
+    $self->{'engine'}->{'varnish'}->send_vcl('main', $vcl);
+    $self->run_loop;
 
-    $self->{'children'} = $children;
-    $self->{'finished'} = 0;
-    $self->{'return'} = undef;
-    $self->_init;
-
-    return $self;
+    $self->{'engine'}->{'varnish'}->send_command('vcl.use main');
+    $self->run_loop;
 }
 
-sub _init($) {
-}
+sub ev_varnish_command_ok($) {
+    my ($self) = @_;
 
-sub run($) {
-    my $self = shift;
-
-    return if $self->{'finished'};
-
-    foreach my $child (@{$self->{'children'}}) {
-	$child->run($self) unless $child->{'finished'};
-	return unless $child->{'finished'};
-	$self->{'return'} = $child->{'return'};
-    }
-
-    $self->{'finished'} = 1;
-}
-
-sub shutdown($) {
-    my $self = shift;
-
-    foreach my $child (@{$self->{'children'}}) {
-	$child->shutdown;
-    }
-}
-
-sub get_mux($) {
-    my $self = shift;
-    return $self->{'mux'} || $self->{'parent'} && $self->{'parent'}->get_mux;
-}
-
-sub super_run($) {
-    my $self = shift;
-    if (defined($self->{'parent'})) {
-	$self->{'parent'}->super_run;
-    }
-    else {
-	$self->run;
-    }
+    $self->pause_loop;
 }
 
 1;

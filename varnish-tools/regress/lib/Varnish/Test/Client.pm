@@ -31,76 +31,110 @@
 package Varnish::Test::Client;
 
 use strict;
-use base 'Varnish::Test::Object';
-use IO::Socket;
-use URI;
+use Carp 'croak';
 
-sub _init($) {
-    my $self = shift;
+use IO::Socket::INET;
 
-    &Varnish::Test::Object::_init($self);
+sub new($$) {
+    my ($this, $engine, $attrs) = @_;
+    my $class = ref($this) || $this;
 
-    $self->set('protocol', '1.1');
-    $self->set('request', \&request);
+    my $self = bless({ 'engine' => $engine,
+		       'mux' => $engine->{'mux'},
+		       'requests' => 0,
+		       'responses' => 0 }, $class);
+
+    return $self;
 }
 
-sub request($$) {
-    my $self = shift;
-    my $invocation = shift;
+sub log($$;$) {
+    my ($self, $str, $extra_prefix) = @_;
 
-    my $server = $invocation->{'args'}[0]->{'return'};
-    my $uri = $invocation->{'args'}[1]->{'return'};
+    $self->{'engine'}->log($self, 'CLI: ' . ($extra_prefix || ''), $str);
+}
 
-    (defined($server) &&
-     ($server->isa('Varnish::Test::Accelerator') ||
-      $server->isa('Varnish::Test::Server')))
-	or die("invalid server\n");
+sub send_request($$;$) {
+    my ($self, $request, $timeout) = @_;
 
-    $uri = new URI($uri)
-	or die("invalid URI\n");
+    my $fh = IO::Socket::INET->new('Proto'    => 'tcp',
+				   'PeerAddr' => 'localhost',
+				   'PeerPort' => '8080')
+      or croak "socket: $@";
 
-    my $fh = new IO::Socket::INET(Proto    => 'tcp',
-				  PeerAddr => $server->get('address'),
-				  PeerPort => $server->get('port'))
-	or die "socket: $@";
+    $self->{'fh'} = $fh;
+    $self->{'mux'}->add($fh);
+    $self->{'mux'}->set_timeout($fh, $timeout) if defined($timeout);
+    $self->{'mux'}->set_callback_object($self, $fh);
+    $self->{'mux'}->write($fh, $request->as_string);
+    $self->{'requests'} += 1;
+    $self->log($request->as_string, 'Tx| ');
+}
 
-    my $mux = $self->get_mux;
-    $mux->add($fh);
-    $mux->set_callback_object($self, $fh);
+sub got_response($$) {
+    my ($self, $response) = @_;
 
-    $mux->write($fh, "GET / HTTP/" . eval($self->get('protocol')) . "\r\n\r\n");
+    $self->{'responses'} += 1;
+    $self->log($response->as_string, 'Rx| ');
+    $self->{'engine'}->ev_client_response($self, $response);
+}
 
-    $self->{'request'} = $invocation;
+sub shutdown($) {
+    my ($self) = @_;
+
+    $self->{'mux'}->shutdown($self->{'fh'}, 1);
 }
 
 sub mux_input($$$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-    my $data = shift;
-    my $response = new Varnish::Test::Context('response', $self);
+    my ($self, $mux, $fh, $data) = @_;
 
-    $self->{'request'}->{'return'} = $$data;
-    if ($$data =~ 'HTTP/1.1') {
-	$response->set('protocol', '1.1');
+    while ($$data =~ /\n\r?\n/) {
+	my $response = HTTP::Response->parse($$data);
+	my $content_length = $response->content_length;
+
+	if (defined($content_length)) {
+	    my $content_ref = $response->content_ref;
+	    my $data_length = length($$content_ref);
+	    if ($data_length == $content_length) {
+		$$data = '';
+		$self->got_response($response);
+	    }
+	    elsif ($data_length < $content_length) {
+		last;
+	    }
+	    else {
+		$$data = substr($$content_ref, $content_length,
+				$data_length - $content_length, '');
+		$self->got_response($response);
+	    }
+	}
+	else {
+	    last;
+	}
     }
-    else {
-	$response->set('protocol', '1.0');
-    }
-    print STDERR "Client got: $$data";
-    $$data = "";
-    $self->{'request'}->{'finished'} = 1;
-    delete $self->{'request'};
-    $self->super_run;
 }
 
 sub mux_eof($$$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-    my $data = shift;
+    my ($self, $mux, $fh, $data) = @_;
 
-    $mux->close($fh);
+    if ($$data ne '') {
+	croak 'Junk or incomplete response' unless $$data =~ "\n\r?\n";
+
+	my $response = HTTP::Response->parse($$data);
+	$$data = '';
+	$self->got_response($response);
+    }
+}
+
+sub mux_timeout($$$) {
+    my ($self, $mux, $fh) = @_;
+
+    $self->{'engine'}->ev_client_timeout($self);
+}
+
+sub mux_close($$) {
+    my ($self, $mux, $fh) = @_;
+
+    delete $self->{'fh'};
 }
 
 1;

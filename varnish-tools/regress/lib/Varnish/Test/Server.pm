@@ -31,67 +31,136 @@
 package Varnish::Test::Server;
 
 use strict;
-use base 'Varnish::Test::Object';
-use IO::Socket;
+use Carp 'croak';
 
-sub _init($) {
-    my $self = shift;
+use IO::Socket::INET;
 
-    &Varnish::Test::Object::_init($self);
+sub new($$) {
+    my ($this, $engine, $attrs) = @_;
+    my $class = ref($this) || $this;
 
-    $self->set('address', 'localhost');
-    $self->set('port', '9001');
+    my ($host, $port) = split(':', $engine->{'config'}->{'server_address'});
+
+    my $socket = IO::Socket::INET->new('Proto'     => 'tcp',
+				       'LocalAddr' => $host,
+				       'LocalPort' => $port,
+				       'Listen'    => 4,
+				       'ReuseAddr' => 1)
+      or croak "socket: $@";
+
+    my $self = bless({ 'engine' => $engine,
+		       'mux' => $engine->{'mux'},
+		       'socket' => $socket,
+		       'requests' => 0,
+		       'responses' => 0 }, $class);
+
+    $self->{'mux'}->listen($socket);
+    $self->{'mux'}->set_callback_object($self, $socket);
+
+    return $self;
 }
 
-sub run($) {
-    my $self = shift;
+sub log($$;$) {
+    my ($self, $str, $extra_prefix) = @_;
 
-    return if $self->{'finished'};
-
-    &Varnish::Test::Object::run($self);
-
-    my $fh = new IO::Socket::INET(Proto     => 'tcp',
-				  LocalAddr => $self->get('address'),
-				  LocalPort => $self->get('port'),
-				  Listen    => 4)
-	or die "socket: $@";
-
-    $self->{'fh'} = $fh;
-
-    my $mux = $self->get_mux;
-    $mux->listen($fh);
-    $mux->set_callback_object($self, $fh);
+    $self->{'engine'}->log($self, 'SRV: ' . ($extra_prefix || ''), $str);
 }
 
 sub shutdown($) {
-    my $self = shift;
+    my ($self) = @_;
 
-    $self->get_mux->close($self->{'fh'});
+    $self->{'mux'}->close($self->{'socket'});
+    delete $self->{'socket'};
 }
 
 sub mux_connection($$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
+    my ($self, $mux, $fh) = @_;
 
-    $mux->set_callback_object($self, $fh);
+    $self->log('CONNECT');
+    my $connection = Varnish::Test::Server::Connection->new($self, $fh);
+}
+
+sub mux_close($$) {
+    my ($self, $mux, $fh) = @_;
+
+    $self->log('CLOSE');
+    delete $self->{'socket'} if $fh == $self->{'socket'};
+}
+
+sub got_request($$) {
+    my ($self, $connection, $request) = @_;
+
+    $self->{'requests'} += 1;
+    $self->log($request->as_string, 'Rx| ');
+    $self->{'engine'}->ev_server_request($self, $connection, $request);
+}
+
+package Varnish::Test::Server::Connection;
+
+use strict;
+use Carp 'croak';
+
+sub new($$) {
+    my ($this, $server, $fh) = @_;
+    my $class = ref($this) || $this;
+
+    my $self = bless({ 'server' => $server,
+		       'fh' => $fh,
+		       'mux' => $server->{'mux'},
+		       'data' => '' }, $class);
+    $self->{'mux'}->set_callback_object($self, $fh);
+    return $self;
+}
+
+sub send_response($$) {
+    my ($self, $response) = @_;
+
+    $self->{'mux'}->write($self->{'fh'}, $response->as_string);
+    $self->{'server'}->{'responses'} += 1;
+    $self->{'server'}->log($response->as_string, 'Tx| ');
+}
+
+sub shutdown($) {
+    my ($self) = @_;
+
+    $self->{'mux'}->shutdown($self->{'fh'}, 1);
 }
 
 sub mux_input($$$$) {
-    my $self = shift;
-    my $mux = shift;
-    my $fh = shift;
-    my $data = shift;
+    my ($self, $mux, $fh, $data) = @_;
 
-    $$data = ""; # Pretend we read the data.
+    while ($$data =~ /\n\r?\n/) {
+	my $request = HTTP::Request->parse($$data);
+	my $content_ref = $request->content_ref;
+	my $content_length = $request->content_length;
 
-    my $response = "HTTP/" . eval($self->get('protocol')) . " 200 OK\r\n"
-	. "Content-Type: text/plain; charset=utf-8\r\n\r\n"
-	. eval($self->get('data')) . "\n";
+	if (defined($content_length)) {
+	    my $data_length = length($$content_ref);
+	    if ($data_length == $content_length) {
+		$$data = '';
+		$self->{'server'}->got_request($self, $request);
+	    }
+	    elsif ($data_length < $content_length) {
+		last;
+	    }
+	    else {
+		$$data = substr($$content_ref, $content_length,
+				$data_length - $content_length, '');
+		$self->{'server'}->got_request($self, $request);
+	    }
+	}
+	else {
+	    $$data = $$content_ref;
+	    $$content_ref = '';
+	    $self->{'server'}->got_request($self, $request);
+	}
+    }
+}
 
-    $mux->write($fh, $response);
-    print STDERR "Server sent: " . $response;
-    $mux->shutdown($fh, 1);
+sub mux_eof($$$$) {
+    my ($self, $mux, $fh, $data) = @_;
+
+    croak 'Junk or incomplete request' unless $$data eq '';
 }
 
 1;

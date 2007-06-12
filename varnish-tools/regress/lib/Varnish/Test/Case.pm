@@ -31,45 +31,85 @@
 package Varnish::Test::Case;
 
 use strict;
-use base 'Varnish::Test::Object';
+use Carp 'croak';
 
-sub _init($) {
-    my $self = shift;
+use Varnish::Test::Logger;
 
-    &Varnish::Test::Object::_init($self);
+use HTTP::Request;
+use HTTP::Response;
 
-    $self->set('assert', \&assert);
+sub new($$) {
+    my ($this, $engine) =  @_;
+    my $class = ref($this) || $this;
+
+    my $self = bless({ 'engine' => $engine,
+		       'count' => 0,
+		       'successful' => 0,
+		       'failed' => 0 }, $class);
 }
 
-sub run($) {
-    my $self = shift;
+sub log($$) {
+    my ($self, $str) = @_;
 
-    if (!defined($self->{'started'})) {
-	print "Start of CASE \"$self->{name}\"...\n";
-	$self->{'started'} = 1;
-    }
-
-    &Varnish::Test::Object::run($self);
-
-    if ($self->{'finished'}) {
-	print "End of CASE \"$self->{name}\".\n";
-    }
+    $self->{'engine'}->log($self, 'CAS: ', $str);
 }
 
-sub assert($$) {
-    my $self = shift;
-    my $invocation = shift;
+sub run($;@) {
+    my ($self, @args) = @_;
 
-    my $bool = $invocation->{'args'}[0]->{'return'};
+    $self->{'engine'}->{'case'} = $self;
 
-    if (!$bool) {
-	print "  ASSERTION DOES NOT HOLD.\n";
+    $self->log('Starting ' . ref($self));
+
+    no strict 'refs';
+    foreach my $method (keys %{ref($self) . '::'}) {
+	next unless $method =~ m/^test([A-Z]\w+)/;
+	eval {
+	    $self->{'count'} += 1;
+	    my $result = $self->$method(@args);
+	    $self->{'successful'} += 1;
+	    $self->log(sprintf("%d: PASS: %s: %s\n",
+			       $self->{'count'}, $method, $result || ''));
+	};
+	if ($@) {
+	    $self->{'failed'} += 1;
+	    $self->log(sprintf("%d: FAIL: %s: %s",
+			       $self->{'count'}, $method, $@));
+	}
     }
-    else {
-	print "  Assertion holds.\n";
-    }
 
-    $invocation->{'finished'} = 1;
+    delete $self->{'engine'}->{'case'};
+}
+
+sub run_loop($) {
+    my ($self) = @_;
+
+    $self->{'engine'}->run_loop;
+}
+
+sub pause_loop($;@) {
+    my ($self, @args) = @_;
+
+    $self->{'engine'}->pause_loop(@args);
+}
+
+sub new_client($) {
+    my ($self) = @_;
+
+    return Varnish::Test::Client->new($self->{'engine'});
+}
+
+sub ev_client_response($$$) {
+    my ($self, $client, $response) = @_;
+
+    $self->{'engine'}->pause_loop($response);
+}
+
+sub ev_client_timeout($$) {
+    my ($self, $client) = @_;
+
+    $client->shutdown(2);
+    $self->{'engine'}->pause_loop;
 }
 
 1;

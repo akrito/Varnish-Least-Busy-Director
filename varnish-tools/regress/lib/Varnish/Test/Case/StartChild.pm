@@ -28,42 +28,25 @@
 # $Id$
 #
 
-package Varnish::Test::Invocation;
+package Varnish::Test::Case::StartChild;
 
 use strict;
-use base 'Varnish::Test::Object';
+use base 'Varnish::Test::Case';
 
-sub new($$$) {
-    my $this = shift;
-    my $class = ref($this) || $this;
-    my $func_id = shift;
-    my $args = shift;
+use Carp 'croak';
 
-    my $self = new Varnish::Test::Object(undef, $args);
-    bless($self, $class);
+sub testStartChild($$) {
+    my ($self, $vcl) = @_;
 
-    $self->{'func_id'} = $func_id;
-    $self->{'args'} = $args;
-
-    return $self;
+    $self->{'engine'}->{'varnish'}->start_child;
+    croak 'Inappropriate event' if $self->run_loop ne 'Started';
+    return 'OK';
 }
 
-sub run($) {
-    my $self = shift;
+sub ev_varnish_child_started($) {
+    my ($self) = @_;
 
-    return if $self->{'finished'};
-
-    &Varnish::Test::Object::run($self) unless $self->{'in_call'};
-
-    if ($self->{'finished'}) {
-	$self->{'finished'} = 0;
-	if (!$self->{'in_call'}) {
-	    $self->{'in_call'} = 1;
-	    my ($func_ptr, $func_context) = $self->{'func_id'}->get_function($self);
-	    # print STDERR "Calling " . $self->{'func_id'}->as_string, "\n";
-	    &$func_ptr($func_context, $self);
-	}
-    }
+    $self->pause_loop('Started');
 }
 
 1;

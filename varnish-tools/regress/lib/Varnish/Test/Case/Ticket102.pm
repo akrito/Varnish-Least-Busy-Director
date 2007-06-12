@@ -28,43 +28,52 @@
 # $Id$
 #
 
-package Varnish::Test::Statement;
+package Varnish::Test::Case::Ticket102;
 
 use strict;
-use base 'Varnish::Test::Object';
+use base 'Varnish::Test::Case';
 
-sub new($$) {
-    my $this = shift;
-    my $class = ref($this) || $this;
-    my $args = shift;
+use Carp 'croak';
 
-    my $children = [];
+our $body = "Hello World!\n";
 
-    if (@$args > 1 && $$args[1] eq '=') {
-	my $self = new Varnish::Test::Object(undef, [$$args[2]]);
-	bless($self, $class);
+sub testBodyInCachedPOST($) {
+    my ($self) = @_;
 
-	$self->{'lhs'} = $$args[0];
-
-	return $self;
-    }
-    else {
-	return $$args[0];
+    my $client = $self->new_client;
+    for (my $i = 0; $i < 2; $i++) {
+	my $request = HTTP::Request->new('POST', '/');
+	$request->protocol('HTTP/1.1');
+	$client->send_request($request, 2);
+	my $response = $self->run_loop;
+	croak 'No (complete) response received' unless defined($response);
+	croak 'Empty body' if $response->content eq '';
+	croak 'Incorrect body' if $response->content ne $body;
     }
 }
 
-use Data::Dumper;
+sub ev_server_request($$$$) {
+    my ($self, $server, $connection, $request) = @_;
 
-sub run($$) {
-    my $self = shift;
+    my $response = HTTP::Response->new(200, undef,
+				       [ 'Content-Length', length($body),
+					 'Connection', 'Keep-Alive' ],
+				       $body);
+    $response->protocol('HTTP/1.1');
+    $connection->send_response($response);
+}
 
-    return if $self->{'finished'};
+sub vcl($) {
+    my ($self) = @_;
 
-    &Varnish::Test::Object::run($self);
-
-    if ($self->{'finished'}) {
-	$self->{'lhs'}->set_value($self->{'parent'}, $self->{'return'});
-    }
+    return $self->{'engine'}->{'varnish'}->backend_block('main') . <<'EOVCL'
+sub vcl_recv {
+	if (req.request == "POST" &&
+	    (!req.http.content-length || req.http.content-length == "0")) {
+		lookup;
+	}
+}
+EOVCL
 }
 
 1;

@@ -28,92 +28,97 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test - Regression test framework for Varnish
+
+=head1 DESCRIPTION
+
+The varnish regression test framework works by starting up a Varnish
+process and then communicating with this process as both client and
+server.
+
+=head1 STRUCTURE
+
+When regressions tests start, an instance of Varnish is forked off as
+a child process, and its I/O channels (std{in,out,err}) are controlled
+by the parent process which also performs the test by playing the role
+of both HTTP client and server.
+
+A single select(2)-driven loop is used to handle all activity on both
+server and client side, as well on Varnish's I/O-channels. This is
+done using IO::Multiplex.
+
+As a result of using a select-loop, the framework has an event-driven
+design in order to cope with unpredictable sequence of processing on
+either server og client side. To drive a test-case forward, the
+select-loop is paused when certain events occur, and control returns
+to the "main program" which can then inspect the situation. This
+results in certain structural constraints. It is essential to be aware
+of whether a piece of code is going to run inside or outside the
+select-loop.
+
+The framework uses Perl objects to represent instances of servers and
+clients as well as the Varnish instance itself. In addition, there is
+an "engine" object which propagates events and controls the program
+flow related to the select-loop.
+
+=cut
+
 package Varnish::Test;
 
-use strict;
-use base 'Varnish::Test::Object';
-use Varnish::Test::Accelerator;
-use Varnish::Test::Case;
-use Varnish::Test::Client;
-use Varnish::Test::Server;
-use Varnish::Test::Parser;
-use IO::Multiplex;
+use Carp 'croak';
 
-use Data::Dumper;
+use Varnish::Test::Engine;
+use Varnish::Test::Case::LoadVCL;
+use Varnish::Test::Case::StartChild;
+use Varnish::Test::Case::StopChild;
 
-sub new($;$) {
-    my $this = shift;
+sub new($) {
+    my ($this) =  @_;
     my $class = ref($this) || $this;
-    my $fn = shift;
 
-    my $self = new Varnish::Test::Object;
-    bless($self, $class);
-
-    $self->{'mux'} = new IO::Multiplex;
-
-    if ($fn) {
-	$self->parse($fn);
-    }
-
-    return $self;
+    return bless({ 'cases' => [] }, $class);
 }
 
-sub parse($$) {
-    my $self = shift;
-    my $fn = shift;
+sub start_engine($;@) {
+    my ($self, @args) = @_;
 
-    local $/;
-    open(SRC, "<", $fn) or die("$fn: $!\n");
-    my $src = <SRC>;
-    close(SRC);
-
-    $::RD_HINT = 1;
-    my $parser = new Varnish::Test::Parser;
-    if (!defined($parser)) {
-	die("Error generating parser.");
-    }
-    my $tree = $parser->module($src);
-    if (!defined($tree)) {
-	die("Parsing error.");
-    }
-
-    print STDERR "###### SYNTAX TREE BEGIN ######\n";
-    print STDERR Dumper $tree if defined($tree->{'body'});
-    print STDERR "###### SYNTAX TREE END ######\n";
-
-    $self->{'objects'} = [];
-
-    foreach my $object (@{$tree->{'body'}}) {
-	if (ref($object) eq 'ARRAY') {
-	    $self->{$$object[0]} = $$object[1];
-	}
-	elsif (ref($object)) {
-	    push(@{$self->{'children'}}, $object);
-	    $object->set_parent($self);
-	}
-    }
+    return if defined $self->{'engine'};
+    $self->{'engine'} =  Varnish::Test::Engine->new(@args);
+    $self->{'engine'}->run_loop;
 }
 
-sub main($) {
-    my $self = shift;
+sub stop_engine($;$) {
+    my ($self) = @_;
 
-    while (!$self->{'finished'}) {
-	&Varnish::Test::Object::run($self);
-	print STDERR "Entering IO::Multiplex loop.\n";
-	$self->{'mux'}->loop;
-    }
-
-    print STDERR "DONE.\n";
+    (delete $self->{'engine'})->shutdown if defined $self->{'engine'};
 }
 
-sub run($) {
-    my $self = shift;
+sub run_case($$) {
+    my ($self, $name) = @_;
 
-    return if $self->{'finished'};
+    my $module = 'Varnish::Test::Case::' . $name;
 
-    &Varnish::Test::Object::run($self);
+    eval 'use ' . $module;
+    croak $@ if $@;
 
-    $self->shutdown if $self->{'finished'};
+    $self->start_engine;
+
+    my $case = $module->new($self->{'engine'});
+
+    push(@{$self->{'cases'}}, $case);
+
+    Varnish::Test::Case::LoadVCL->new($self->{'engine'})->run($case->vcl)
+	if $case->can('vcl');
+
+    Varnish::Test::Case::StartChild->new($self->{'engine'})->run;
+
+    $case->run;
+
+    Varnish::Test::Case::StopChild->new($self->{'engine'})->run;
+
+    $self->stop_engine;
 }
 
 1;

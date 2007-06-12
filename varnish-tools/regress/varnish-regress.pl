@@ -29,12 +29,73 @@
 #
 
 use strict;
-use lib './lib';
+
+use FindBin;
+
+BEGIN {
+    $FindBin::Bin =~ /^(.*)$/;
+    $FindBin::Bin = $1;
+}
+
+use lib "$FindBin::Bin/lib";
+
+use Getopt::Long;
 use Varnish::Test;
-use Data::Dumper;
+
+my $verbose = 0;
+my $help = 0;
+
+my $usage = <<"EOU";
+USAGE:
+
+  $0 CASE1 [ CASE2 ... ]
+
+  where CASEn is either a full case name or a ticket number
+
+Examples:
+
+  $0 Ticket102
+  $0 102
+
+EOU
 
 MAIN:{
-    my $test = new Varnish::Test($ARGV[0]);
-    #print STDERR Dumper($test);
-    $test->main;
+    $help = 1 unless GetOptions('help|h!' => \$help);
+
+    if (!$help and @ARGV == 0) {
+	print STDERR "ERROR: Need at least one case name (or ticket number)\n\n";
+	$help = 1;
+    }
+
+    if ($help) {
+	print STDERR $usage;
+	exit 1;
+    }
+
+    my @casenames = ();
+
+    foreach my $arg (@ARGV) {
+	my $case;
+
+	if ($arg =~ /^(\d+)$/) {
+	    push(@casenames, sprintf('Ticket%03d', $1));
+	}
+	else {
+	    $arg =~ /^(.*)$/;
+	    push(@casenames, $1);
+	}
+    }
+
+    my $controller = Varnish::Test->new;
+
+    foreach my $casename (@casenames) {
+	$controller->run_case($casename);
+    }
+
+    foreach my $case (@{$controller->{'cases'}}) {
+	(my $name = ref($case)) =~ s/.*://;
+
+	print sprintf("%s: Successful: %d Failed: %d\n",
+		      $name, $case->{'successful'}, $case->{'failed'});
+    }
 }

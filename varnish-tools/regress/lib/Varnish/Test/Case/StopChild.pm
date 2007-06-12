@@ -28,9 +28,25 @@
 # $Id$
 #
 
-package Varnish::Test::Response;
+package Varnish::Test::Case::StopChild;
 
 use strict;
-use base 'Varnish::Test::Message';
+use base 'Varnish::Test::Case';
+
+use Carp 'croak';
+
+sub testStopChild($$) {
+    my ($self, $vcl) = @_;
+
+    $self->{'engine'}->{'varnish'}->stop_child;
+    croak 'Inappropriate event' if $self->run_loop ne 'Stopped';
+    return 'OK';
+}
+
+sub ev_varnish_child_stopped($) {
+    my ($self) = @_;
+
+    $self->pause_loop('Stopped');
+}
 
 1;
