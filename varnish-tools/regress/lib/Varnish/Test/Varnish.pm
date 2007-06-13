@@ -124,12 +124,20 @@ sub backend_block($$) {
 		   $name, split(':', $self->{'engine'}->{'config'}->{'server_address'}));
 }
 
-sub send_command($$) {
-    my ($self, $command) = @_;
+sub send_command($@) {
+    my ($self, @args) = @_;
     croak 'not ready' if $self->{'state'} eq 'init';
     croak sprintf('busy awaiting earlier command (%s)', $self->{'pending'})
       if defined $self->{'pending'};
 
+    foreach (@args) {
+	if (m/[\s\"\n]/) {
+	    s/\n/\\n/g;
+	    s/\"/\\\"/g;
+	    s/^(.*)$/"$1"/g;
+	}
+    }
+    my $command = join(' ', @args);
     $self->{'mux'}->write($self->{'stdin'}, $command . "\n");
     $self->{'pending'} = $command;
 }
@@ -137,10 +145,13 @@ sub send_command($$) {
 sub send_vcl($$$) {
     my ($self, $config, $vcl) = @_;
 
-    $vcl =~ s/\n/ /g;
-    $vcl =~ s/"/\\"/g;
+    $self->send_command('vcl.inline', $config, $vcl);
+}
 
-    $self->send_command(sprintf('vcl.inline %s "%s"', $config, $vcl));
+sub use_vcl($$) {
+    my ($self, $config) = @_;
+
+    $self->send_command('vcl.use', $config);
 }
 
 sub start_child($) {
@@ -193,7 +204,7 @@ sub mux_input($$$$) {
     }
 
     $self->{'engine'}->ev_varnish_command_ok(delete $self->{'pending'})
-      if ($$data =~ /^200 0/ and $self->{'pending'});
+	if ($$data =~ /^200 0/ and $self->{'pending'});
 
     $$data = '';
 }
