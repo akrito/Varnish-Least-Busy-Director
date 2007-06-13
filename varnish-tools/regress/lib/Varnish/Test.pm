@@ -70,9 +70,6 @@ package Varnish::Test;
 use Carp 'croak';
 
 use Varnish::Test::Engine;
-use Varnish::Test::Case::LoadVCL;
-use Varnish::Test::Case::StartChild;
-use Varnish::Test::Case::StopChild;
 
 sub new($) {
     my ($this) =  @_;
@@ -85,7 +82,7 @@ sub start_engine($;@) {
     my ($self, @args) = @_;
 
     return if defined $self->{'engine'};
-    $self->{'engine'} =  Varnish::Test::Engine->new(@args);
+    $self->{'engine'} = Varnish::Test::Engine->new(@args);
     $self->{'engine'}->run_loop;
 }
 
@@ -109,14 +106,9 @@ sub run_case($$) {
 
     push(@{$self->{'cases'}}, $case);
 
-    Varnish::Test::Case::LoadVCL->new($self->{'engine'})->run($case->vcl)
-	if $case->can('vcl');
-
-    Varnish::Test::Case::StartChild->new($self->{'engine'})->run;
-
+    $case->init;
     $case->run;
-
-    Varnish::Test::Case::StopChild->new($self->{'engine'})->run;
+    $case->fini;
 
     $self->stop_engine;
 }

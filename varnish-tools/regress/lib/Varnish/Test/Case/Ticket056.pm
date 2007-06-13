@@ -35,6 +35,12 @@ use base 'Varnish::Test::Case';
 
 use Carp 'croak';
 
+our $VCL = "
+sub vcl_recv {
+    pass;
+}
+";
+
 sub testVersionMatch($) {
     my ($self) = @_;
 
@@ -83,16 +89,6 @@ sub ev_server_request($$$$) {
     $response->protocol($self->{'sv'});
     $connection->send_response($response);
     $connection->shutdown;
-}
-
-sub vcl($) {
-    my ($self) = @_;
-
-    return $self->{'engine'}->{'varnish'}->backend_block('main') . <<'EOVCL'
-sub vcl_recv {
-  pass;
-}
-EOVCL
 }
 
 1;

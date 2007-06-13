@@ -35,6 +35,15 @@ use base 'Varnish::Test::Case';
 
 use Carp 'croak';
 
+our $VCL = <<EOVCL;
+sub vcl_recv {
+	if (req.request == "POST" &&
+	    (!req.http.content-length || req.http.content-length == "0")) {
+		lookup;
+	}
+}
+EOVCL
+
 our $body = "Hello World!\n";
 
 sub testBodyInCachedPOST($) {
@@ -61,19 +70,6 @@ sub ev_server_request($$$$) {
 				       $body);
     $response->protocol('HTTP/1.1');
     $connection->send_response($response);
-}
-
-sub vcl($) {
-    my ($self) = @_;
-
-    return $self->{'engine'}->{'varnish'}->backend_block('main') . <<'EOVCL'
-sub vcl_recv {
-	if (req.request == "POST" &&
-	    (!req.http.content-length || req.http.content-length == "0")) {
-		lookup;
-	}
-}
-EOVCL
 }
 
 1;

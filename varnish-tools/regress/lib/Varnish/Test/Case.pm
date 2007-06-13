@@ -54,16 +54,59 @@ sub log($$) {
     $self->{'engine'}->log($self, 'CAS: ', $str);
 }
 
-sub run($;@) {
-    my ($self, @args) = @_;
+sub init($) {
+    my ($self) = @_;
 
     $self->{'engine'}->{'case'} = $self;
+
+    my $varnish = $self->{'engine'}->{'varnish'};
+
+    # Load VCL script if we have one
+    no strict 'refs';
+    if (${ref($self)."::VCL"}) {
+	my $vcl = $varnish->backend_block('main') . ${ref($self)."::VCL"};
+
+	$varnish->send_vcl(ref($self), $vcl);
+	$self->run_loop();
+	$varnish->use_vcl(ref($self));
+	$self->run_loop();
+    }
+
+    # Start the child
+    $varnish->start_child();
+    $self->run_loop();
+}
+
+sub fini($) {
+    my ($self) = @_;
+
+    my $varnish = $self->{'engine'}->{'varnish'};
+
+    # Stop the worker process
+    $varnish->stop_child();
+    $self->run_loop();
+
+    # Revert to initial VCL script
+    no strict 'refs';
+    if (${ref($self)."::VCL"}) {
+	$varnish->use_vcl('boot');
+	$self->run_loop();
+    }
+
+    delete $self->{'engine'}->{'case'};
+}
+
+sub run($;@) {
+    my ($self, @args) = @_;
 
     $self->log('Starting ' . ref($self));
 
     no strict 'refs';
-    foreach my $method (keys %{ref($self) . '::'}) {
-	next unless $method =~ m/^test([A-Z]\w+)/;
+    my @tests = @{ref($self)."::TESTS"};
+    if (!@tests) {
+	@tests = sort grep {/^test(\w+)/} (keys %{ref($self) . '::'});
+    }
+    foreach my $method (@tests) {
 	eval {
 	    $self->{'count'} += 1;
 	    my $result = $self->$method(@args);
@@ -77,8 +120,6 @@ sub run($;@) {
 			       $self->{'count'}, $method, $@));
 	}
     }
-
-    delete $self->{'engine'}->{'case'};
 }
 
 sub run_loop($) {
@@ -97,6 +138,12 @@ sub new_client($) {
     my ($self) = @_;
 
     return Varnish::Test::Client->new($self->{'engine'});
+}
+
+sub ev_varnish_command_ok($) {
+    my ($self) = @_;
+
+    $self->pause_loop;
 }
 
 sub ev_client_response($$$) {
