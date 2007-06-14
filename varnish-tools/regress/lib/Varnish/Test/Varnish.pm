@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Tw
+#!/usr/bin/perl -w
 #-
 # Copyright (c) 2006 Linpro AS
 # All rights reserved.
@@ -80,7 +80,6 @@ sub new($$;$) {
 
 	print STDERR sprintf("Starting Varnish with options: %s\n", join(' ', @opts));
 
-	$ENV{'PATH'} = '/opt/varnish/sbin:/bin:/usr/bin';
 	exec('varnishd', @opts);
 	exit(1);
     }

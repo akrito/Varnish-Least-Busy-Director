@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Tw
+#!/usr/bin/perl -w
 #-
 # Copyright (c) 2006 Linpro AS
 # All rights reserved.
