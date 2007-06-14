@@ -67,6 +67,7 @@ flow related to the select-loop.
 
 package Varnish::Test;
 
+use Varnish::Test::Case;
 use Varnish::Test::Engine;
 
 sub new($) {
@@ -91,6 +92,19 @@ sub stop_engine($;$) {
 	$self->{'engine'}->shutdown();
 	delete $self->{'engine'};
     }
+}
+
+sub cases($) {
+    my ($self) = @_;
+
+    my $dir = $INC{'Varnish/Test/Case.pm'};
+    $dir =~ s/\.pm$/\//;
+    local *DIR;
+    opendir(DIR, $dir)
+	or die("$dir: $!\n");
+    my @cases = sort grep { s/^(\w+)\.pm$/$1/ } readdir(DIR);
+    closedir(DIR);
+    return @cases;
 }
 
 sub run_case($$) {

@@ -32,20 +32,13 @@ use strict;
 
 use FindBin;
 
-BEGIN {
-    $FindBin::Bin =~ /^(.*)$/;
-    $FindBin::Bin = $1;
-}
-
 use lib "$FindBin::Bin/lib";
 
 use Getopt::Long;
 use Varnish::Test;
 
-my $verbose = 0;
-my $help = 0;
-
-my $usage = <<"EOU";
+sub usage() {
+    print STDERR <<EOU;
 USAGE:
 
   $0 CASE1 [ CASE2 ... ]
@@ -58,38 +51,23 @@ Examples:
   $0 102
 
 EOU
+    exit 1;
+}
 
 MAIN:{
-    $help = 1 unless GetOptions('help|h!' => \$help);
-
-    if (!$help and @ARGV == 0) {
-	print STDERR "ERROR: Need at least one case name (or ticket number)\n\n";
-	$help = 1;
-    }
-
-    if ($help) {
-	print STDERR $usage;
-	exit 1;
-    }
-
-    my @casenames = ();
-
-    foreach my $arg (@ARGV) {
-	my $case;
-
-	if ($arg =~ /^(\d+)$/) {
-	    push(@casenames, sprintf('Ticket%03d', $1));
-	}
-	else {
-	    $arg =~ /^(.*)$/;
-	    push(@casenames, $1);
-	}
-    }
+    GetOptions('help|h!' => \&usage)
+	or usage();
 
     my $controller = new Varnish::Test;
 
+    if (!@ARGV) {
+	@ARGV = $controller->cases();
+    } else {
+	map { s/^(\d+)$/sprintf('Ticket%03d', $1)/e } @ARGV;
+    }
+
     $controller->start_engine();
-    foreach my $casename (@casenames) {
+    foreach my $casename (@ARGV) {
 	$controller->run_case($casename);
     }
     $controller->stop_engine();
