@@ -67,8 +67,6 @@ flow related to the select-loop.
 
 package Varnish::Test;
 
-use Carp 'croak';
-
 use Varnish::Test::Engine;
 
 sub new($) {
@@ -89,7 +87,10 @@ sub start_engine($;@) {
 sub stop_engine($;$) {
     my ($self) = @_;
 
-    (delete $self->{'engine'})->shutdown if defined $self->{'engine'};
+    if (defined($self->{'engine'})) {
+	$self->{'engine'}->shutdown();
+	delete $self->{'engine'};
+    }
 }
 
 sub run_case($$) {
@@ -98,19 +99,23 @@ sub run_case($$) {
     my $module = 'Varnish::Test::Case::' . $name;
 
     eval 'use ' . $module;
-    croak $@ if $@;
+    die $@ if $@;
 
-    $self->start_engine;
+    $self->start_engine();
 
     my $case = $module->new($self->{'engine'});
 
     push(@{$self->{'cases'}}, $case);
 
-    $case->init;
-    $case->run;
-    $case->fini;
-
-    $self->stop_engine;
+    eval {
+	$case->init();
+	$case->run();
+	$case->fini();
+    };
+    if ($@) {
+	$self->{'engine'}->log($self, 'TST: ', $@);
+	$self->stop_engine();
+    }
 }
 
 1;

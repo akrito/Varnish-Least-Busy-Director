@@ -97,6 +97,11 @@ sub fini($) {
     }
 
     delete $self->{'engine'}->{'case'};
+
+    if ($self->{'failed'}) {
+	die sprintf("%d out of %d tests failed\n",
+		    $self->{'failed'}, $self->{'count'});
+    }
 }
 
 sub run($;@) {

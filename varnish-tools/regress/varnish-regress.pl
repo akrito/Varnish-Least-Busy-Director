@@ -86,16 +86,18 @@ MAIN:{
 	}
     }
 
-    my $controller = Varnish::Test->new;
+    my $controller = new Varnish::Test;
 
+    $controller->start_engine();
     foreach my $casename (@casenames) {
 	$controller->run_case($casename);
     }
+    $controller->stop_engine();
 
     foreach my $case (@{$controller->{'cases'}}) {
 	(my $name = ref($case)) =~ s/.*://;
 
-	print sprintf("%s: Successful: %d Failed: %d\n",
-		      $name, $case->{'successful'}, $case->{'failed'});
+	printf("%s: Successful: %d Failed: %d\n",
+	       $name, $case->{'successful'}, $case->{'failed'});
     }
 }
