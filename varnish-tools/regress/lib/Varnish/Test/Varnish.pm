@@ -190,7 +190,7 @@ sub mux_input($$$$) {
 
     $self->log($$data);
 
-    if ($$data =~ /rolling\(2\)\.\.\./) {
+    if ($$data =~ /^rolling\(2\)\.\.\./m) {
 	$self->{'state'} = 'stopped';
 	$self->{'engine'}->ev_varnish_started;
     }
@@ -204,7 +204,10 @@ sub mux_input($$$$) {
     }
 
     $self->{'engine'}->ev_varnish_command_ok(delete $self->{'pending'})
-	if ($$data =~ /^200 0/ and $self->{'pending'});
+	if ($$data =~ /^200 \d+/m and $self->{'pending'});
+
+    $self->{'engine'}->ev_varnish_command_unknown(delete $self->{'pending'})
+	if ($$data =~ /^300 \d+/m and $self->{'pending'});
 
     $$data = '';
 }

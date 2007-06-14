@@ -99,6 +99,8 @@ sub mux_input($$$$) {
 		$self->got_response($response);
 	    }
 	    elsif ($data_length < $content_length) {
+		$self->log(sprintf('Partial response. Bytes in body: %d received, %d expected, %d remaining',
+				   $data_length, $content_length, $content_length - $data_length));
 		last;
 	    }
 	    else {
@@ -108,6 +110,7 @@ sub mux_input($$$$) {
 	    }
 	}
 	else {
+	    $self->log('Partial response. Content-Length unknown. Expecting CLOSE as end-of-response.');
 	    last;
 	}
     }

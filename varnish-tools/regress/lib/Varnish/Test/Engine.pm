@@ -48,7 +48,8 @@ sub new($$;%) {
 
     my $self = bless({ 'mux' => IO::Multiplex->new,
 		       'controller' => $controller,
-		       'config' => \%config }, $class);
+		       'config' => \%config,
+		       'pending' => [] }, $class);
 
     $self->{'server'} = Varnish::Test::Server->new($self);
     $self->{'varnish'} = Varnish::Test::Varnish->new($self);
@@ -65,28 +66,28 @@ sub log($$$) {
     print STDERR $str;
 }
 
-sub run_loop($) {
-    my ($self) = @_;
+sub run_loop($@) {
+    my ($self, @wait_for) = @_;
 
-    croak 'Engine::run: Already inside select-loop. Your code is buggy.'
+    croak 'Engine::run_loop: Already inside select-loop. Your code is buggy.'
       if exists($self->{'in_loop'});
 
+    croak 'Engine::run_loop: No events to wait for.'
+      if @wait_for == 0;
+
+    while (@{$self->{'pending'}} > 0) {
+	my ($event, @args) = @{shift @{$self->{'pending'}}};
+	return ($event, @args) if grep({ $_ eq $event } @wait_for);
+    }
+
+    $self->{'wait_for'} = \@wait_for;
     $self->{'in_loop'} = 1;
     $self->{'mux'}->loop;
     delete $self->{'in_loop'};
+    delete $self->{'wait_for'};
 
-    return delete $self->{'return'} if exists $self->{'return'};
+    return @{shift @{$self->{'pending'}}} if @{$self->{'pending'}} > 0;
     return undef;
-}
-
-sub pause_loop($;$) {
-    my ($self, $return) = @_;
-
-    croak 'Engine::pause: Not inside select-loop. Your code is buggy.'
-      unless exists($self->{'in_loop'});
-
-    $self->{'return'} = $return if defined($return);
-    $self->{'mux'}->endloop;
 }
 
 sub shutdown($) {
@@ -99,32 +100,27 @@ sub shutdown($) {
     }
 }
 
-sub ev_varnish_started($) {
-    my ($self) = @_;
-
-    $self->pause_loop;
-}
-
 sub AUTOLOAD ($;@) {
     my ($self, @args) = @_;
 
-    (my $event_handler = our $AUTOLOAD) =~ s/.*://;
+    (my $event = our $AUTOLOAD) =~ s/.*://;
 
-    return if $event_handler eq 'DESTROY';
+    return if $event eq 'DESTROY';
 
-    croak sprintf('received event (%s) while not running a case', $event_handler)
-      unless defined $self->{'case'};
+    croak sprintf('Unknown method "%s"', $event)
+      unless $event =~ /^ev_(.*)$/;
 
-    croak sprintf('Unknown method "%s"', $event_handler)
-      unless $event_handler =~ /^ev_(.*)$/;
+    $self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));
 
-    if ($self->{'case'}->can($event_handler)) {
-	$self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));
-	return $self->{'case'}->$event_handler(@args);
+    @args = $self->{'case'}->$event(@args)
+      if (defined($self->{'case'}) and $self->{'case'}->can($event));
+
+    if (@{$self->{'pending'}} > 0) {
+	push(@{$self->{'pending'}}, [ $event, @args ]);
     }
-    else {
-	$self->log($self, 'ENG: ', sprintf('EVENT "%s" IGNORED', $1));
-	return undef;
+    elsif (grep({ $_ eq $event} @{$self->{'wait_for'}}) > 0) {
+	push(@{$self->{'pending'}}, [ $event, @args ]);
+	$self->{'mux'}->endloop;
     }
 }
 

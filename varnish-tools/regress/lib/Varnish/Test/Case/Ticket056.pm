@@ -55,9 +55,10 @@ sub testVersionMatch($) {
     $request->protocol($cv);
     $client->send_request($request, 2);
 
-    my $response = $self->run_loop;
+    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
 
-    croak 'No (complete) response received' unless defined($response);
+    croak 'Client time-out before receiving a (complete) response'
+       if $event eq 'ev_client_timeout';
     croak 'Server was not contacted by Varnish'
       if $self->{'engine'}->{'server'}->{'requests'} != $requests + 1;
     croak sprintf('Protocol version mismatch: got: %s expected: %s',

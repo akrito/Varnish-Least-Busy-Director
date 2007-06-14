@@ -54,11 +54,16 @@ sub testBodyInCachedPOST($) {
 	my $request = HTTP::Request->new('POST', '/');
 	$request->protocol('HTTP/1.1');
 	$client->send_request($request, 2);
-	my $response = $self->run_loop;
-	croak 'No (complete) response received' unless defined($response);
+
+	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+
+	croak 'Client time-out before receiving a (complete) response'
+	  if $event eq 'ev_client_timeout';
 	croak 'Empty body' if $response->content eq '';
 	croak 'Incorrect body' if $response->content ne $body;
     }
+
+    return 'OK';
 }
 
 sub ev_server_request($$$$) {

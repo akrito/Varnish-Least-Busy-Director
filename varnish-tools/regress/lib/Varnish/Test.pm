@@ -83,7 +83,7 @@ sub start_engine($;@) {
 
     return if defined $self->{'engine'};
     $self->{'engine'} = Varnish::Test::Engine->new(@args);
-    $self->{'engine'}->run_loop;
+    $self->{'engine'}->run_loop('ev_varnish_started');
 }
 
 sub stop_engine($;$) {

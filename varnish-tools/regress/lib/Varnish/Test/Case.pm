@@ -67,14 +67,14 @@ sub init($) {
 	my $vcl = $varnish->backend_block('main') . ${ref($self)."::VCL"};
 
 	$varnish->send_vcl(ref($self), $vcl);
-	$self->run_loop();
+	$self->run_loop('ev_varnish_command_ok');
 	$varnish->use_vcl(ref($self));
-	$self->run_loop();
+	$self->run_loop('ev_varnish_command_ok');
     }
 
     # Start the child
     $varnish->start_child();
-    $self->run_loop();
+    $self->run_loop('ev_varnish_child_started');
 }
 
 sub fini($) {
@@ -84,13 +84,16 @@ sub fini($) {
 
     # Stop the worker process
     $varnish->stop_child();
-    $self->run_loop();
+    # Wait for both events, the order is unpredictable, so wait for
+    # any of them both times.
+    $self->run_loop('ev_varnish_child_stopped', 'ev_varnish_command_ok');
+    $self->run_loop('ev_varnish_child_stopped', 'ev_varnish_command_ok');
 
     # Revert to initial VCL script
     no strict 'refs';
     if (${ref($self)."::VCL"}) {
 	$varnish->use_vcl('boot');
-	$self->run_loop();
+	$self->run_loop('ev_varnish_command_ok', 'ev_varnish_command_unknown');
     }
 
     delete $self->{'engine'}->{'case'};
@@ -122,16 +125,10 @@ sub run($;@) {
     }
 }
 
-sub run_loop($) {
-    my ($self) = @_;
+sub run_loop($@) {
+    my ($self, @wait_for) = @_;
 
-    $self->{'engine'}->run_loop;
-}
-
-sub pause_loop($;@) {
-    my ($self, @args) = @_;
-
-    $self->{'engine'}->pause_loop(@args);
+    return $self->{'engine'}->run_loop(@wait_for);
 }
 
 sub new_client($) {
@@ -140,23 +137,17 @@ sub new_client($) {
     return Varnish::Test::Client->new($self->{'engine'});
 }
 
-sub ev_varnish_command_ok($) {
-    my ($self) = @_;
-
-    $self->pause_loop;
-}
-
 sub ev_client_response($$$) {
     my ($self, $client, $response) = @_;
 
-    $self->{'engine'}->pause_loop($response);
+    return $response;
 }
 
 sub ev_client_timeout($$) {
     my ($self, $client) = @_;
 
     $client->shutdown(2);
-    $self->{'engine'}->pause_loop;
+    return $client;
 }
 
 1;
