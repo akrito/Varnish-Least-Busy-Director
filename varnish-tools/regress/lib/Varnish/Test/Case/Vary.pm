@@ -73,8 +73,7 @@ sub ev_server_request($$$$) {
     }
 
     my $response = HTTP::Response->new(200, undef,
-				       [ 'Connection', 'close',
-					 'Content-Length', length($body),
+				       [ 'Content-Length', length($body),
 					 'Vary', 'Accept-Language',
 					 @headers ],
 				       $body);
