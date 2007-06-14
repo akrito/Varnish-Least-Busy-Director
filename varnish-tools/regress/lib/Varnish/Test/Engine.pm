@@ -31,7 +31,6 @@
 package Varnish::Test::Engine;
 
 use strict;
-use Carp 'croak';
 
 use Varnish::Test::Server;
 use Varnish::Test::Varnish;
@@ -69,10 +68,10 @@ sub log($$$) {
 sub run_loop($@) {
     my ($self, @wait_for) = @_;
 
-    croak 'Engine::run_loop: Already inside select-loop. Your code is buggy.'
+    die 'Engine::run_loop: Already inside select-loop. Your code is buggy.\n'
       if exists($self->{'in_loop'});
 
-    croak 'Engine::run_loop: No events to wait for.'
+    die 'Engine::run_loop: No events to wait for.\n'
       if @wait_for == 0;
 
     while (@{$self->{'pending'}} > 0) {
@@ -107,13 +106,13 @@ sub AUTOLOAD ($;@) {
 
     return if $event eq 'DESTROY';
 
-    croak sprintf('Unknown method "%s"', $event)
-      unless $event =~ /^ev_(.*)$/;
+    die sprintf('Unknown method "%s"\n', $event)
+	unless $event =~ /^ev_(.*)$/;
 
     $self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));
 
     @args = $self->{'case'}->$event(@args)
-      if (defined($self->{'case'}) and $self->{'case'}->can($event));
+	if (defined($self->{'case'}) and $self->{'case'}->can($event));
 
     if (@{$self->{'pending'}} > 0) {
 	push(@{$self->{'pending'}}, [ $event, @args ]);

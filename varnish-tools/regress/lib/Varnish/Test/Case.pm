@@ -31,7 +31,6 @@
 package Varnish::Test::Case;
 
 use strict;
-use Carp 'croak';
 
 use Varnish::Test::Logger;
 

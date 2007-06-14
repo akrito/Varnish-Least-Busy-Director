@@ -31,7 +31,6 @@
 package Varnish::Test::Server;
 
 use strict;
-use Carp 'croak';
 
 use IO::Socket::INET;
 
@@ -46,7 +45,7 @@ sub new($$) {
 				       'LocalPort' => $port,
 				       'Listen'    => 4,
 				       'ReuseAddr' => 1)
-      or croak "socket: $@";
+      or die "socket(): $!\n";
 
     my $self = bless({ 'engine' => $engine,
 		       'mux' => $engine->{'mux'},
@@ -98,7 +97,6 @@ sub got_request($$) {
 package Varnish::Test::Server::Connection;
 
 use strict;
-use Carp 'croak';
 
 sub new($$) {
     my ($this, $server, $fh) = @_;
@@ -160,7 +158,8 @@ sub mux_input($$$$) {
 sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
-    croak 'Junk or incomplete request' unless $$data eq '';
+    die 'Junk or incomplete request\n'
+	unless $$data eq '';
 }
 
 1;

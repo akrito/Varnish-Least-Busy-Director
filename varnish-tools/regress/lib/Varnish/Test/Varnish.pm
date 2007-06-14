@@ -31,7 +31,6 @@
 package Varnish::Test::Varnish;
 
 use strict;
-use Carp 'croak';
 
 use Socket;
 
@@ -58,7 +57,8 @@ sub new($$;$) {
     delete $SIG{CHLD};
 
     my $pid = fork;
-    croak "fork(): $@\n" unless defined($pid);
+    die "fork(): $!\n"
+	unless defined($pid);
 
     if ($pid == 0) {
 	# Child
@@ -126,9 +126,10 @@ sub backend_block($$) {
 
 sub send_command($@) {
     my ($self, @args) = @_;
-    croak 'not ready' if $self->{'state'} eq 'init';
-    croak sprintf('busy awaiting earlier command (%s)', $self->{'pending'})
-      if defined $self->{'pending'};
+    die 'not ready\n'
+	if $self->{'state'} eq 'init';
+    die sprintf('busy awaiting earlier command (%s)\n', $self->{'pending'})
+	if defined $self->{'pending'};
 
     foreach (@args) {
 	if (m/[\s\"\n]/) {
@@ -156,16 +157,20 @@ sub use_vcl($$) {
 
 sub start_child($) {
     my ($self) = @_;
-    croak 'not ready' if $self->{'state'} eq 'init';
-    croak 'already started' if $self->{'state'} eq 'started';
+    die 'not ready\n'
+	if $self->{'state'} eq 'init';
+    die 'already started\n'
+	if $self->{'state'} eq 'started';
 
     $self->send_command("start");
 }
 
 sub stop_child($) {
     my ($self) = @_;
-    croak 'not ready' if $self->{'state'} eq 'init';
-    croak 'already stopped' if $self->{'state'} eq 'stopped';
+    die 'not ready\n'
+	if $self->{'state'} eq 'init';
+    die 'already stopped\n'
+	if $self->{'state'} eq 'stopped';
 
     $self->send_command("stop");
 }
@@ -180,7 +185,8 @@ sub kill($;$) {
     my ($self, $signal) = @_;
 
     $signal ||= 15;
-    croak 'Not running' unless defined($self->{'pid'});
+    die 'Not running\n'
+	unless defined($self->{'pid'});
     kill($signal, $self->{'pid'});
     delete $self->{'pid'};
 }

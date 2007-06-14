@@ -31,7 +31,6 @@
 package Varnish::Test::Client;
 
 use strict;
-use Carp 'croak';
 
 use IO::Socket::INET;
 
@@ -59,7 +58,7 @@ sub send_request($$;$) {
     my $fh = IO::Socket::INET->new('Proto'    => 'tcp',
 				   'PeerAddr' => 'localhost',
 				   'PeerPort' => '8080')
-      or croak "socket: $@";
+      or die "socket(): $!\n";
 
     $self->{'fh'} = $fh;
     $self->{'mux'}->add($fh);
@@ -120,7 +119,8 @@ sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
     if ($$data ne '') {
-	croak 'Junk or incomplete response' unless $$data =~ "\n\r?\n";
+	die 'Junk or incomplete response\n'
+	    unless $$data =~ "\n\r?\n";
 
 	my $response = HTTP::Response->parse($$data);
 	$$data = '';

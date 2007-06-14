@@ -33,8 +33,6 @@ package Varnish::Test::Case::Ticket102;
 use strict;
 use base 'Varnish::Test::Case';
 
-use Carp 'croak';
-
 our $VCL = <<EOVCL;
 sub vcl_recv {
 	if (req.request == "POST" &&
@@ -57,10 +55,12 @@ sub testBodyInCachedPOST($) {
 
 	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
 
-	croak 'Client time-out before receiving a (complete) response'
-	  if $event eq 'ev_client_timeout';
-	croak 'Empty body' if $response->content eq '';
-	croak 'Incorrect body' if $response->content ne $body;
+	die 'Client time-out before receiving a (complete) response\n'
+	    if $event eq 'ev_client_timeout';
+	die 'Empty body\n'
+	    if $response->content eq '';
+	die 'Incorrect body\n'
+	    if $response->content ne $body;
     }
 
     return 'OK';

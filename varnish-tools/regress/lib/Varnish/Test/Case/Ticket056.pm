@@ -33,8 +33,6 @@ package Varnish::Test::Case::Ticket056;
 use strict;
 use base 'Varnish::Test::Case';
 
-use Carp 'croak';
-
 our $VCL = "
 sub vcl_recv {
     pass;
@@ -57,13 +55,13 @@ sub testVersionMatch($) {
 
     my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
 
-    croak 'Client time-out before receiving a (complete) response'
-       if $event eq 'ev_client_timeout';
-    croak 'Server was not contacted by Varnish'
-      if $self->{'engine'}->{'server'}->{'requests'} != $requests + 1;
-    croak sprintf('Protocol version mismatch: got: %s expected: %s',
-		  $response->protocol, $sv)
-      if $response->protocol ne $sv;
+    die 'Client time-out before receiving a (complete) response\n'
+	if $event eq 'ev_client_timeout';
+    die 'Server was not contacted by Varnish\n'
+	if $self->{'engine'}->{'server'}->{'requests'} != $requests + 1;
+    die sprintf('Protocol version mismatch: got: %s expected: %s\n',
+		$response->protocol, $sv)
+	if $response->protocol ne $sv;
 
     return sprintf("Client: %s Server: %s", $cv, $sv);
 }
