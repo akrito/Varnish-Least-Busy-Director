@@ -6,38 +6,57 @@
     <title>Varnish test report</title>
     <meta name="svnid" content="$Id$"/>
     <style type="text/css">
-      table { border-collapse: collapse; border: none; }
-      td, th { border: thin solid black; padding: 3pt; }
-      th { background-color: #eeeeff; }
-      tr.pass { background-color: #eeffee; }
-      tr.fail { background-color: #ffeeee; }
+table { border-collapse: collapse; border: none; }
+td, th { border: thin solid black; padding: 3pt; text-align: left; }
+thead, tfoot { background-color: #eeeeff; }
+tr.pass { background-color: #eeffee; }
+tr.fail { background-color: #ffeeee; }
+.name { width: 15%; }
+.count { width: 5%; }
+.pass { width: 5%; }
+.fail { width: 5%; }
+.time { width: 10%; }
+.descr { width: 60%; }
     </style>
   </head>
+<!-- USE us = format('%8.6f') -->
   <body>
     <h1 class="title">Varnish test report</h1>
     <table>
-      <tr>
-	<th>Name</th>
-	<th>Time</th>
-	<th>Tests</th>
-	<th>Passed</th>
-	<th>Failed</th>
-	<th>Description</th>
-      </tr>
+      <thead>
+	<tr>
+	  <th class="name">Name</th>
+	  <th class="tests">Tests</th>
+	  <th class="pass">Pass</th>
+	  <th class="fail">Fail</th>
+	  <th class="time">Time</th>
+	  <th class="descr">Description</th>
+	</tr>
+      </thead>
 <!-- FOREACH case = cases -->
 <!-- IF case.pass == case.count -->
       <tr class="pass">
 <!-- ELSE -->
       <tr class="fail">
 <!-- END -->
-	<td><!-- case.name --></td>
-	<td><!-- case.time --></td>
-	<td><!-- case.count --></td>
-	<td><!-- case.pass --></td>
-	<td><!-- case.fail --></td>
-	<td><!-- case.descr --></td>
+	<td class="name"><!-- case.name --></td>
+	<td class="count"><!-- case.count --></td>
+	<td class="pass"><!-- case.pass --></td>
+	<td class="fail"><!-- case.fail --></td>
+	<td class="time"><!-- us(case.time) --> s</td>
+	<td class="descr"><!-- case.descr --></td>
       </tr>
 <!-- END -->
+      <tfoot>
+	<tr>
+	  <th class="name">Total</th>
+	  <td class="count"><!-- count --></td>
+	  <td class="pass"><!-- pass --></td>
+	  <td class="fail"><!-- fail --></td>
+	  <td class="time"><!-- us(time) --> s</td>
+	  <td class="descr">&nbsp;</td>
+	</tr>
+      </tfoot>
     </table>
   </body>
 </html>

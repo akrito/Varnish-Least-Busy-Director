@@ -57,7 +57,20 @@ sub run($@) {
     die "No template defined\n"
 	unless defined($self->{'template'});
     my $template = new Template($self->{'config'});
-    $template->process($self->{'template'}, { 'cases' => \@cases })
+    my ($count, $pass, $fail, $time);
+    map {
+	$count += $_->{'count'};
+	$pass += $_->{'pass'};
+	$fail += $_->{'fail'};
+	$time += $_->{'time'};
+    } @cases;
+    $template->process($self->{'template'}, {
+	'cases' => \@cases,
+	'count' => $count,
+	'pass' => $pass,
+	'fail' => $fail,
+	'time' => $time,
+    })
 	or die $template->error();
 }
 
