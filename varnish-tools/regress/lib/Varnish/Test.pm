@@ -132,4 +132,10 @@ sub run_case($$) {
     }
 }
 
+sub results($) {
+    my ($self) = @_;
+
+    map { $_->results() } @{$self->{'cases'}};
+}
+
 1;

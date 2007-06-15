@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Varnish test report</title>
+    <meta name="svnid" content="$Id$"/>
+    <style type="text/css">
+      table { border-collapse: collapse; border: none; }
+      td, th { border: thin solid black; padding: 3pt; }
+      th { background-color: #eeeeff; }
+      tr.pass { background-color: #eeffee; }
+      tr.fail { background-color: #ffeeee; }
+    </style>
+  </head>
+  <body>
+    <h1 class="title">Varnish test report</h1>
+    <table>
+      <tr>
+	<th>Name</th>
+	<th>Time</th>
+	<th>Tests</th>
+	<th>Passed</th>
+	<th>Failed</th>
+	<th>Description</th>
+      </tr>
+<!-- FOREACH case = cases -->
+<!-- IF case.pass == case.count -->
+      <tr class="pass">
+<!-- ELSE -->
+      <tr class="fail">
+<!-- END -->
+	<td><!-- case.name --></td>
+	<td><!-- case.time --></td>
+	<td><!-- case.count --></td>
+	<td><!-- case.pass --></td>
+	<td><!-- case.fail --></td>
+	<td><!-- case.descr --></td>
+      </tr>
+<!-- END -->
+    </table>
+  </body>
+</html>

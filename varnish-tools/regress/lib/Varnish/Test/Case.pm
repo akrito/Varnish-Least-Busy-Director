@@ -36,6 +36,7 @@ use Varnish::Test::Logger;
 
 use HTTP::Request;
 use HTTP::Response;
+use Time::HiRes qw(gettimeofday tv_interval);
 
 sub new($$) {
     my ($this, $engine) =  @_;
@@ -113,6 +114,7 @@ sub run($;@) {
     if (!@tests) {
 	@tests = sort grep {/^test(\w+)/} (keys %{ref($self) . '::'});
     }
+    $self->{'start'} = [gettimeofday()];
     foreach my $method (@tests) {
 	eval {
 	    $self->{'count'} += 1;
@@ -127,6 +129,7 @@ sub run($;@) {
 			       $self->{'count'}, $method, $@));
 	}
     }
+    $self->{'stop'} = [gettimeofday()];
 }
 
 sub run_loop($@) {
@@ -139,6 +142,22 @@ sub new_client($) {
     my ($self) = @_;
 
     return Varnish::Test::Client->new($self->{'engine'});
+}
+
+sub results($) {
+    my ($self) = @_;
+
+    no strict 'refs';
+    my $name = ${ref($self)."::NAME"} || (split('::', ref($self)))[-1];
+    my $descr = ${ref($self)."::DESCR"} || "N/A";
+    return {
+	'name' => $name,
+	'descr' => $descr,
+	'count' => $self->{'count'},
+	'pass' => $self->{'successful'},
+	'fail' => $self->{'failed'},
+	'time' => tv_interval($self->{'start'}, $self->{'stop'}),
+    };
 }
 
 sub ev_client_response($$$) {

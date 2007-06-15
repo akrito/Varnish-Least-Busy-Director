@@ -28,53 +28,37 @@
 # $Id$
 #
 
+package Varnish::Test::Report;
+
 use strict;
 
-use FindBin;
+use Template;
 
-use lib "$FindBin::Bin/lib";
+sub new($) {
+    my ($this) =  @_;
+    my $class = ref($this) || $this;
 
-use Getopt::Long;
-use Varnish::Test;
-use Varnish::Test::Report::HTML;
+    my $self = bless({
+	'config' => {
+	},
+	'template' => undef,
+    }, $class);
 
-sub usage() {
-    print STDERR <<EOU;
-USAGE:
+    ($self->{'config'}->{'INCLUDE_PATH'} = $INC{'Varnish/Test/Report.pm'}) =~ s/\.pm$//;
 
-  $0 [CASE ...]
+    $self->init();
 
-  where CASE is either a full case name or a ticket number.  By
-  default, all available test cases will be run.
-
-Examples:
-
-  $0
-  $0 Ticket102
-  $0 102
-
-EOU
-    exit 1;
+    return $self;
 }
 
-MAIN:{
-    GetOptions('help|h!' => \&usage)
-	or usage();
+sub run($@) {
+    my ($self, @cases) = @_;
 
-    my $controller = new Varnish::Test;
-
-    if (!@ARGV) {
-	@ARGV = $controller->cases();
-    } else {
-	map { s/^(\d+)$/sprintf('Ticket%03d', $1)/e } @ARGV;
-    }
-
-    $controller->start_engine();
-    foreach my $casename (@ARGV) {
-	$controller->run_case($casename);
-    }
-    $controller->stop_engine();
-
-    my $report = new Varnish::Test::Report::HTML;
-    $report->run($controller->results());
+    die "No template defined\n"
+	unless defined($self->{'template'});
+    my $template = new Template($self->{'config'});
+    $template->process($self->{'template'}, { 'cases' => \@cases })
+	or die $template->error();
 }
+
+1;

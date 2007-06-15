@@ -28,53 +28,17 @@
 # $Id$
 #
 
+package Varnish::Test::Report::HTML;
+
 use strict;
 
-use FindBin;
+use base 'Varnish::Test::Report';
 
-use lib "$FindBin::Bin/lib";
+sub init($) {
+    my ($self) = @_;
 
-use Getopt::Long;
-use Varnish::Test;
-use Varnish::Test::Report::HTML;
-
-sub usage() {
-    print STDERR <<EOU;
-USAGE:
-
-  $0 [CASE ...]
-
-  where CASE is either a full case name or a ticket number.  By
-  default, all available test cases will be run.
-
-Examples:
-
-  $0
-  $0 Ticket102
-  $0 102
-
-EOU
-    exit 1;
+    $self->{'template'} = 'report.html';
+    $self->{'config'}->{'TAG_STYLE'} = 'html';
 }
 
-MAIN:{
-    GetOptions('help|h!' => \&usage)
-	or usage();
-
-    my $controller = new Varnish::Test;
-
-    if (!@ARGV) {
-	@ARGV = $controller->cases();
-    } else {
-	map { s/^(\d+)$/sprintf('Ticket%03d', $1)/e } @ARGV;
-    }
-
-    $controller->start_engine();
-    foreach my $casename (@ARGV) {
-	$controller->run_case($casename);
-    }
-    $controller->stop_engine();
-
-    my $report = new Varnish::Test::Report::HTML;
-    $report->run($controller->results());
-}
+1;
