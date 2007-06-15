@@ -48,13 +48,14 @@ sub testVary($) {
 	$request->header('Accept-Language', $lang);
 	$request->protocol('HTTP/1.1');
 	$client->send_request($request, 2);
-	my $response = $self->run_loop;
-	die 'No (complete) response received'
+	my ($event, $response) =
+	    $self->run_loop('ev_client_response', 'ev_client_timeout');
+	die "No (complete) response received\n"
 	    unless defined($response);
-	die 'Empty body'
-	    if $response->content eq '';
-	die 'Incorrect body'
-	    if $response->content ne $languages{$lang};
+	die "Empty body\n"
+	    if $response->content() eq '';
+	die "Incorrect body\n"
+	    if $response->content() ne $languages{$lang};
     }
 }
 
