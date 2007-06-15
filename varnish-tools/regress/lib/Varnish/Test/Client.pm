@@ -28,6 +28,17 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Client - HTTP-client emulator
+
+=head1 DESCRIPTION
+
+Varnish::Test::Client objects have the capability of establishing HTTP
+connections, sending requests and receiving responses.
+
+=cut
+
 package Varnish::Test::Client;
 
 use strict;
@@ -86,7 +97,18 @@ sub shutdown($) {
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
+    # Iterate through the input buffer ($$data) and identify HTTP
+    # messages, one per iteration. Break out of the loop when there
+    # are no complete HTTP messages left in the buffer, and let
+    # whatever data remains stay in the buffer, as we will get a new
+    # chance to parse it next time we get more data ("mux_input") or
+    # if connection is closed ("mux_eof").
+
     while ($$data =~ /\n\r?\n/) {
+	# If we find a double (CR)LF in the input data, we have at
+	# least a complete header section of a message, so look for
+	# content-length and decide what to do.
+
 	my $response = HTTP::Response->parse($$data);
 	my $content_length = $response->content_length;
 
@@ -94,25 +116,47 @@ sub mux_input($$$$) {
 	    my $content_ref = $response->content_ref;
 	    my $data_length = length($$content_ref);
 	    if ($data_length == $content_length) {
+		# We found exactly content-length amount of data, so
+		# empty input buffer and send response to event
+		# handling.
 		$$data = '';
 		$self->got_response($response);
 	    }
 	    elsif ($data_length < $content_length) {
+		# We only received the first part of an HTTP message,
+		# so break out of loop and wait for more.
 		$self->log(sprintf('Partial response. Bytes in body: %d received, %d expected, %d remaining',
 				   $data_length, $content_length, $content_length - $data_length));
 		last;
 	    }
 	    else {
+		# We have more than content-length data, which means
+		# more than just one HTTP message. The extra data
+		# (beyond content-length) is now at the end of
+		# $$content_ref, so move it back to the input buffer
+		# so we can parse it on the next iteration. Note that
+		# this "substr" also removes this data from
+		# $$content_ref (the message body of $response
+		# itself).
 		$$data = substr($$content_ref, $content_length,
 				$data_length - $content_length, '');
+
+		# Send response to event handling.
 		$self->got_response($response);
 	    }
 	}
 	else {
+	    # There is no content-length among the headers, so break
+	    # out of loop and wait for EOF, in which case mux_eof will
+	    # reparse the input buffer as a HTTP message and send it
+	    # to event handling from there.
 	    $self->log('Partial response. Content-Length unknown. Expecting CLOSE as end-of-response.');
 	    last;
 	}
     }
+
+    # At this point, what remains in the input buffer is either
+    # nothing at all or a partial HTTP message.
 }
 
 sub mux_eof($$$$) {

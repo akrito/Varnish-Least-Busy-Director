@@ -28,12 +28,27 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Case - test-case superclass
+
+=head1 DESCRIPTION
+
+Varnish::Test::Case is meant to be the superclass of specific
+test-case clases. It provides functionality to run a number of tests
+defined in methods whose names start with "test", as well as keeping
+track of the number of successful or failed tests.
+
+It also provides default event handlers for "ev_client_response" and
+"ev_client_timeout", which are standard for most test-cases.
+
+=cut
+
 package Varnish::Test::Case;
 
 use strict;
 
-use Varnish::Test::Logger;
-
+use Varnish::Test::Client;
 use HTTP::Request;
 use HTTP::Response;
 use Time::HiRes qw(gettimeofday tv_interval);

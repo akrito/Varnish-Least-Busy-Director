@@ -28,6 +28,20 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Server - HTTP-server emulator
+
+=head1 DESCRIPTION
+
+A Varnish::Test::Server object has the capability of listening on a
+TCP socket, receiving HTTP requests and sending responses.
+
+Every established connection is handled by an associated object of
+type Varnish::Test::Server::Connection.
+
+=cut
+
 package Varnish::Test::Server;
 
 use strict;
@@ -127,7 +141,17 @@ sub shutdown($) {
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
+    # Iterate through the input buffer ($$data) and identify HTTP
+    # messages, one per iteration. Break out of the loop when there
+    # are no complete HTTP messages left in the buffer, and let
+    # whatever data remains stay in the buffer, as we will get a new
+    # chance to parse it next time we get more data ("mux_input").
+
     while ($$data =~ /\n\r?\n/) {
+	# If we find a double (CR)LF in the input data, we have at
+	# least a complete header section of a message, so look for
+	# content-length and decide what to do.
+
 	my $request = HTTP::Request->parse($$data);
 	my $content_ref = $request->content_ref;
 	my $content_length = $request->content_length;
@@ -135,19 +159,38 @@ sub mux_input($$$$) {
 	if (defined($content_length)) {
 	    my $data_length = length($$content_ref);
 	    if ($data_length == $content_length) {
+		# We found exactly content-length amount of data, so
+		# empty input buffer and send request to event
+		# handling.
 		$$data = '';
 		$self->{'server'}->got_request($self, $request);
 	    }
 	    elsif ($data_length < $content_length) {
+		# We only received the first part of an HTTP message,
+		# so break out of loop and wait for more.
 		last;
 	    }
 	    else {
+		# We have more than content-length data, which means
+		# more than just one HTTP message. The extra data
+		# (beyond content-length) is now at the end of
+		# $$content_ref, so move it back to the input buffer
+		# so we can parse it on the next iteration. Note that
+		# this "substr" also removes this data from
+		# $$content_ref (the message body of $request itself).
 		$$data = substr($$content_ref, $content_length,
 				$data_length - $content_length, '');
+		# Send request to event handling.
 		$self->{'server'}->got_request($self, $request);
 	    }
 	}
 	else {
+	    # HTTP requests without a content-length has no body by
+	    # definition, so whatever was parsed as content must be
+	    # the start of another request. Hence, move this back to
+	    # input buffer and empty the body of this $request. Then,
+	    # send $request to event handling.
+
 	    $$data = $$content_ref;
 	    $$content_ref = '';
 	    $self->{'server'}->got_request($self, $request);
@@ -157,6 +200,10 @@ sub mux_input($$$$) {
 
 sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
+
+    # On server side, HTTP does not use EOF from client to signal end
+    # of request, so if there is anything left in input buffer, it
+    # must be incomplete because "mux_input" left it there.
 
     die "Junk or incomplete request\n"
 	unless $$data eq '';

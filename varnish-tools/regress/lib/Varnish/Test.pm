@@ -38,30 +38,65 @@ The varnish regression test framework works by starting up a Varnish
 process and then communicating with this process as both client and
 server.
 
+ +---------------------------------------------------------+
+ |                     TEST FRAMEWORK                      |
+ |                                                         |
+ |                       Controller                        |
+ |          +-----------------------------------+          |
+ |          |               | C ^               |          |
+ |          | configuration | L | status        |          |
+ |          |               v I |               |          |
+ |          |  requests  +---------+  requests  |          |
+ |          | =========> |         | =========> |          |
+ | Client   |    HTTP    | VARNISH |    HTTP    | Server   |
+ | emulator | <========= |         | <========= | emulator |
+ |          |  responses +---------+  responses |          |
+ +----------+                                   +----------+
+
 =head1 STRUCTURE
 
-When regressions tests start, an instance of Varnish is forked off as
-a child process, and its I/O channels (std{in,out,err}) are controlled
-by the parent process which also performs the test by playing the role
+When regression tests start, an instance of Varnish is forked off as a
+child process, and its I/O channels (std{in,out,err} which are
+connected to the command-line interface of Varnish) are controlled by
+the parent process which also performs the tests by playing the role
 of both HTTP client and server.
 
 A single select(2)-driven loop is used to handle all activity on both
 server and client side, as well on Varnish's I/O-channels. This is
 done using IO::Multiplex.
 
-As a result of using a select-loop, the framework has an event-driven
-design in order to cope with unpredictable sequence of processing on
-either server og client side. To drive a test-case forward, the
-select-loop is paused when certain events occur, and control returns
-to the "main program" which can then inspect the situation. This
-results in certain structural constraints. It is essential to be aware
-of whether a piece of code is going to run inside or outside the
-select-loop.
+As a result of using a select-loop (as opposed to a multi-threaded or
+multi-process approach), the framework has an event-driven design in
+order to cope with the unpredictable sequence of I/O on server or
+client side (or Varnish's I/O-channels for that matter) . To drive a
+test-case forward, the select-loop is paused when certain events
+occur, and control returns to the "main program" which can then
+inspect the situation. This results in certain structural constraints,
+and it is essential to be aware of whether a piece of code is going to
+run inside (event handler) or outside (main program) the select-loop.
 
-The framework uses Perl objects to represent instances of servers and
-clients as well as the Varnish instance itself. In addition, there is
-an "engine" object which propagates events and controls the program
-flow related to the select-loop.
+The framework uses Perl objects to represent instances of servers
+(Varnish::Test::Server) and clients (Varnish::Test::Client) as well as
+the Varnish instance itself (Varnish::Test::Varnish). In addition,
+there is an engine object (Varnish::Test::Engine) which dispatches
+events and controls the program flow related to the select-loop.
+Futhermore, each test case is represented by an object
+(Varnish::Test::Case subclass). HTTP requests and responses are
+represented by objects of HTTP::Request and HTTP::Response,
+respectively. Finally, there is an overall test-case controller object
+(Varnish::Test) which accumulates test-case results.
+
+=head1 EVENT PROCESSING
+
+Events typically occur in the call-back routines (mux_*) of client,
+server, and Varnish objects. An event is created by calling an ev_*
+method of the engine object. These calls are handled by Perl's
+AUTOLOAD mechanism since Engine does not define any ev_* methods
+explicitly. The AUTOLOAD routine works as the event dispatcher by
+looking for an event handler in the currently running test-case
+object, and also determines whether the event being processed is
+supposed to pause the select-loop and return control back to the main
+program.
 
 =cut
 

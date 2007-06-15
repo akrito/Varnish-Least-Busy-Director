@@ -28,13 +28,26 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Varnish - Varnish child-process controller
+
+=head1 DESCRIPTION
+
+A Varnish::Test::Varnish object is used to fork off a Varnish child
+process and control traffic going into and coming out of the Varnish
+(management process) command-line interface (CLI).
+
+Various events are generated when certain strings are identified in
+the output from the CLI.
+
+=cut
+
 package Varnish::Test::Varnish;
 
 use strict;
 
 use Socket;
-
-use Varnish::Test::Logger;
 
 sub new($$;$) {
     my ($this, $engine, $attrs) =  @_;
@@ -43,6 +56,9 @@ sub new($$;$) {
     my $self = bless({ 'engine' => $engine,
 		       'mux' => $engine->{'mux'},
 		       'state' => 'init' }, $class);
+
+    # Create pipes (actually socket pairs) for communication between
+    # parent and child.
 
     socketpair(STDIN_READ, STDIN_WRITE, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
     shutdown(STDIN_READ, 1);
@@ -54,7 +70,8 @@ sub new($$;$) {
     shutdown(STDERR_READ, 1);
     shutdown(STDERR_WRITE, 0);
 
-    delete $SIG{CHLD};
+    # Ignore SIGCHLD.
+    $SIG{CHLD} = 'IGNORE';
 
     my $pid = fork;
     die "fork(): $!\n"
@@ -66,6 +83,9 @@ sub new($$;$) {
 	close STDIN_WRITE;
 	close STDOUT_READ;
 	close STDERR_READ;
+
+	# dup2(2) the I/O-channels to std{in,out,err} and close the
+	# original file handles before transforming into Varnish.
 
 	open STDIN, '<&', \*STDIN_READ;
 	close STDIN_READ;
@@ -80,14 +100,17 @@ sub new($$;$) {
 
 	print STDERR sprintf("Starting Varnish with options: %s\n", join(' ', @opts));
 
+	# Unset ignoring of SIGCHLD, so Varnish will get signals from
+	# its children.
+
+	delete $SIG{CHLD};
+
+	# Transform into Varnish. Goodbye Perl-code!
 	exec('varnishd', @opts);
 	exit(1);
     }
     else {
 	# Parent
-
-	$SIG{CHLD} = 'IGNORE';
-
 	$self->log('PID: ' . $pid);
 
 	close STDIN_READ;
@@ -98,6 +121,9 @@ sub new($$;$) {
 	$self->{'stdin'} = \*STDIN_WRITE;
 	$self->{'stdout'} = \*STDOUT_READ;
 	$self->{'stderr'} = \*STDERR_READ;
+
+	# Register the Varnish I/O-channels with the IO::Multiplex
+	# loop object.
 
 	$self->{'mux'}->add($self->{'stdin'});
 	$self->{'mux'}->set_callback_object($self, $self->{'stdin'});

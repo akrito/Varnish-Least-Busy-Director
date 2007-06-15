@@ -28,13 +28,29 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Engine - select-loop wrapper and event dispatcher
+
+=head1 DESCRIPTION
+
+Varnish::Test::Engine is primarily a wrapper around a
+IO::Multiplex-based select-loop which monitors activity on
+client-side, server-side and Varnish's I/O-channels. On startup, it
+automatically creates an associated Server object and a Varnish
+objects whoses sockets/filehandles are registered in the
+IO::Multiplex-object.
+
+Additionally, event dispatching is performed by the AUTOLOAD method.
+
+=cut
+
 package Varnish::Test::Engine;
 
 use strict;
 
 use Varnish::Test::Server;
 use Varnish::Test::Varnish;
-use Varnish::Test::Client;
 use IO::Multiplex;
 
 sub new($$;%) {
@@ -68,16 +84,25 @@ sub log($$$) {
 sub run_loop($@) {
     my ($self, @wait_for) = @_;
 
+    # Sanity-check to help the novice test-case writer.
     die "Engine::run_loop: Already inside select-loop. Your code is buggy.\n"
 	if exists($self->{'in_loop'});
 
+    # We need to wait for at least one event.
     die "Engine::run_loop: No events to wait for.\n"
 	if @wait_for == 0;
 
+    # Check the queue for pending events which occurred between the
+    # last pausing event and the time the loop actually paused. If we
+    # are waiting for any of these events (which already occurred),
+    # return the first one we find immediately.
     while (@{$self->{'pending'}} > 0) {
 	my ($event, @args) = @{shift @{$self->{'pending'}}};
 	return ($event, @args) if grep({ $_ eq $event } @wait_for);
     }
+
+    # At this point, the queue of pending events is always empty.
+    # Prepare and run IO::Multiplex::loop.
 
     $self->{'wait_for'} = \@wait_for;
     $self->{'in_loop'} = 1;
@@ -85,15 +110,27 @@ sub run_loop($@) {
     delete $self->{'in_loop'};
     delete $self->{'wait_for'};
 
+    # Loop has now been paused due to the occurrence of an event we
+    # were waiting for. This event is always found in the front of the
+    # pending events queue at this point, so return it.
     return @{shift @{$self->{'pending'}}} if @{$self->{'pending'}} > 0;
+
+    # Hm... we should usually not reach this point. The pending queue
+    # is empty. Either someone (erroneously) requested a loop pause by
+    # calling IO::Multiplex::endloop and forgot to put any event in
+    # the queue, or the loop ended itself because all registered
+    # filehandles/sockets closed.
     return undef;
 }
 
 sub shutdown($) {
     my ($self) = @_;
 
+    # Shutdown varnish and server.
     $self->{'varnish'}->shutdown if defined $self->{'varnish'};
     $self->{'server'}->shutdown if defined $self->{'server'};
+
+    # Close any lingering sockets registered with IO::Multiplex.
     foreach my $fh ($self->{'mux'}->handles) {
 	$self->{'mux'}->close($fh);
     }
@@ -106,18 +143,32 @@ sub AUTOLOAD ($;@) {
 
     return if $event eq 'DESTROY';
 
+    # For the sake of readability, we want all method names we handle
+    # to start with "ev_".
     die sprintf("Unknown method '%s'\n", $event)
 	unless $event =~ /^ev_(.*)$/;
 
     $self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));
 
+    # Check to see if the active case object defines an event handler
+    # for this event. If so, call it and bring the event arguments
+    # along. This will also replace @args, which is significant if
+    # this event will pause and return.
     @args = $self->{'case'}->$event(@args)
 	if (defined($self->{'case'}) and $self->{'case'}->can($event));
 
     if (@{$self->{'pending'}} > 0) {
-	push(@{$self->{'pending'}}, [ $event, @args ]);
+	# Pending event queue is NOT empty, meaning this is an event
+	# arriving after a pausing (wait_for) event, but before the
+	# pause is in effect. We queue this event unconditionally
+	# because it might be the one we are waiting for on the next
+	# call to run_loop.
+ 	push(@{$self->{'pending'}}, [ $event, @args ]);
     }
     elsif (grep({ $_ eq $event} @{$self->{'wait_for'}}) > 0) {
+	# Pending event queue is empty and this event is one of those
+	# we are waiting for, so put it in the front of the queue and
+	# signal loop pause by calling IO::Multiplex::endloop.
 	push(@{$self->{'pending'}}, [ $event, @args ]);
 	$self->{'mux'}->endloop;
     }
