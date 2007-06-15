@@ -68,11 +68,11 @@ sub log($$$) {
 sub run_loop($@) {
     my ($self, @wait_for) = @_;
 
-    die 'Engine::run_loop: Already inside select-loop. Your code is buggy.\n'
-      if exists($self->{'in_loop'});
+    die "Engine::run_loop: Already inside select-loop. Your code is buggy.\n"
+	if exists($self->{'in_loop'});
 
-    die 'Engine::run_loop: No events to wait for.\n'
-      if @wait_for == 0;
+    die "Engine::run_loop: No events to wait for.\n"
+	if @wait_for == 0;
 
     while (@{$self->{'pending'}} > 0) {
 	my ($event, @args) = @{shift @{$self->{'pending'}}};
@@ -106,7 +106,7 @@ sub AUTOLOAD ($;@) {
 
     return if $event eq 'DESTROY';
 
-    die sprintf('Unknown method "%s"\n', $event)
+    die sprintf("Unknown method '%s'\n", $event)
 	unless $event =~ /^ev_(.*)$/;
 
     $self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));

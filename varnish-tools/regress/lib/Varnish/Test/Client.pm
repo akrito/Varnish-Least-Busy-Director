@@ -119,7 +119,7 @@ sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
     if ($$data ne '') {
-	die 'Junk or incomplete response\n'
+	die "Junk or incomplete response\n"
 	    unless $$data =~ "\n\r?\n";
 
 	my $response = HTTP::Response->parse($$data);

@@ -158,7 +158,7 @@ sub mux_input($$$$) {
 sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
-    die 'Junk or incomplete request\n'
+    die "Junk or incomplete request\n"
 	unless $$data eq '';
 }
 

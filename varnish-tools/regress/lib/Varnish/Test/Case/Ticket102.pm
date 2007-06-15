@@ -55,11 +55,11 @@ sub testBodyInCachedPOST($) {
 
 	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
 
-	die 'Client time-out before receiving a (complete) response\n'
+	die "Client time-out before receiving a (complete) response\n"
 	    if $event eq 'ev_client_timeout';
-	die 'Empty body\n'
+	die "Empty body\n"
 	    if $response->content eq '';
-	die 'Incorrect body\n'
+	die "Incorrect body\n"
 	    if $response->content ne $body;
     }
 

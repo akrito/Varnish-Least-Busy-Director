@@ -125,9 +125,9 @@ sub backend_block($$) {
 
 sub send_command($@) {
     my ($self, @args) = @_;
-    die 'not ready\n'
+    die "not ready\n"
 	if $self->{'state'} eq 'init';
-    die sprintf('busy awaiting earlier command (%s)\n', $self->{'pending'})
+    die sprintf("busy awaiting earlier command (%s)\n", $self->{'pending'})
 	if defined $self->{'pending'};
 
     foreach (@args) {
@@ -156,19 +156,19 @@ sub use_vcl($$) {
 
 sub start_child($) {
     my ($self) = @_;
-    die 'not ready\n'
-	if $self->{'state'} eq 'init';
-    die 'already started\n'
-	if $self->{'state'} eq 'started';
+    die "not ready\n"
+	if $self->{'state'} eq "init";
+    die "already started\n"
+	if $self->{'state'} eq "started";
 
     $self->send_command("start");
 }
 
 sub stop_child($) {
     my ($self) = @_;
-    die 'not ready\n'
+    die "not ready\n"
 	if $self->{'state'} eq 'init';
-    die 'already stopped\n'
+    die "already stopped\n"
 	if $self->{'state'} eq 'stopped';
 
     $self->send_command("stop");
@@ -184,7 +184,7 @@ sub kill($;$) {
     my ($self, $signal) = @_;
 
     $signal ||= 15;
-    die 'Not running\n'
+    die "Not running\n"
 	unless defined($self->{'pid'});
     kill($signal, $self->{'pid'});
     delete $self->{'pid'};
