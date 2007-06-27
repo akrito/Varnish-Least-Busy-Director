@@ -1,0 +1,124 @@
+#! /usr/bin/perl
+# Varnish cache hit ratio logger/plugin
+# anders@aftenposten.no, 2007-05-07
+
+# Log/data file
+# These must be created with write permission to the user the plugin runs as
+# On FreeBSD, that is nobody
+# Comment $mylog out to skip logging
+
+$mydat = "/var/tmp/varnish_cachehitratio.dat";
+#$mylog = "/var/log/varnish_cachehitratio.log";
+
+%stat = ();
+$ENV{PATH} = "/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin";
+
+use Date::Format;
+
+sub popstat {
+	foreach $line (`varnishstat -1`) {
+	chomp($line);
+		if ($line =~ /^\s+(\d+)\s+(.*)$/) {
+			$val = $1;
+			$key = $2;
+			$key =~ s@\s@_@g;
+			$key =~ tr@A-Z@a-z@;
+
+			$stat{"$key"} = $val;
+		}
+	}
+}
+
+sub printconfig {
+	print "graph_title Cache hit/miss ratio\n";
+	print "graph_args --upper-limit 100 -l 0\n";
+	print "graph_vlabel % of requests\n";
+	print "graph_category varnish\n";
+	print "graph_info This graph shows the ratio of requests found in the cache and not\n";
+	print "graph_order hitratio missratio unknownratio\n";
+	print "graph_scale no\n";
+
+	print "hitratio.label hits\n";
+	print "hitratio.type GAUGE\n";
+	print "hitratio.graph yes\n";
+	print "hitratio.min 0\n";
+	print "hitratio.max 100\n";
+	print "hitratio.draw AREA\n";
+
+	print "missratio.label misses\n";
+	print "missratio.type GAUGE\n";
+	print "missratio.graph yes\n";
+	print "missratio.min 0\n";
+	print "missratio.max 100\n";
+	print "missratio.draw STACK\n";
+
+	print "unknownratio.label unknown\n";
+	print "unknownratio.type GAUGE\n";
+	print "unknownratio.graph yes\n";
+	print "unknownratio.min 0\n";
+	print "unknownratio.max 100\n";
+	print "unknownratio.draw STACK\n";
+}
+
+sub findvalues {
+	$nrequests = $stat{"client_requests_received"};
+	$nhits = $stat{"cache_hits"};
+	$nmisses = $stat{"cache_misses"};
+
+	open(OVAL, $mydat);
+	$tmpstr = <OVAL>;
+	close(OVAL);
+	chomp($tmpstr);
+
+	($orequests,$ohits,$omisses) = split(/ /, $tmpstr, 3);
+
+	$hits = $nhits - $ohits;
+	$requests = $nrequests - $orequests;
+	$misses = $nmisses - $omisses;
+}
+
+sub printvalues {
+	if ($requests > 0) {
+		$hitratio = sprintf("%.2f", $hits / $requests * 100);
+		$missratio = sprintf("%.2f", $misses / $requests * 100);
+	} else {
+		# Assume cache hit ratio = 100% if requests < 0
+		$hitratio = sprintf("%.2f", 100);
+		$missratio = sprintf("%.2f", 0);
+	}
+
+	if (($hitratio + $missratio) > 100) {
+		# Rounding foo, hit+miss ratio is higher than 100
+		$missratio = sprintf("%.2f", 100 - $hitratio);
+		$unknownratio = sprintf("%.2f", 0);
+	} else {
+		# Unknown = rest, hit+miss ratio is upto or 100
+		$unknownratio = sprintf("%.2f", 100 - ($hitratio + $missratio));
+	}
+
+	print "hitratio.value $hitratio\n";
+	print "missratio.value $missratio\n";
+	print "unknownratio.value $unknownratio\n";
+	if ($mylog ne "") {
+		open(LOG, ">>$mylog");
+		print LOG "hitratio=$hitratio missratio=$missratio unknown=$unknownratio hits=$hits misses=$misses requests=$requests [" . time2str("%Y-%m-%d %H:%M:%S", time) . "]\n";
+		close(LOG);
+	}
+}
+
+sub writevalues {
+	open(OVAL, ">$mydat");
+	print OVAL "$nrequests $nhits $nmisses\n";
+	close(OVAL);
+}
+
+if ($ARGV[0] eq "autoconf") {
+	print "yes\n";
+} elsif ($ARGV[0] eq "config") {
+	printconfig;
+} else {
+	popstat;
+	findvalues;
+	printvalues;
+	writevalues;
+}

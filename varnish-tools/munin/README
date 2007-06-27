@@ -1,0 +1,23 @@
+The scripts in this directory are munin plugins for monitoring varnish.
+varnish_cachehitratio and varnish_hitrate are written by Anders
+Nordby, while varnish_varnishstat_ is written by Bjørn
+Ruberg. All three scripts uses varnishstat to acquire information.
+
+* varnish_cachehitratio shows the cache hit/miss ratio.
+* varnish_hitrate shows the rate of requests.
+* varnish_varnishstat_ shows the cache usage.
+
+To work with named varnish instances, these scripts will have to be modified
+so they can call varnishstat with the appropriate parameter. As of today,
+the scripts only call 'varnishstat -1', and thus, will only work if varnishd
+was started without the -n parameter. A solution to this problem could be to
+let the scripts read a filename from an environment variable (this must then
+be set in the munin-plugin configuration), and have this file contain the
+name (or names?) to the varnish server(s) to monitor. If the environment
+variable is not set, varnishstat will be called without the -n parameter,
+and work with the default name.
+
+Dependencies:
+* varnish_cachehitration needs the CPAN module Date::Format
+* varnish_varnishstart_ needs the CPAN module Net::Telnet
+(but does it really? It doesn't seem to use it for anything.)
