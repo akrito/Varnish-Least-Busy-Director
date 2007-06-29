@@ -63,6 +63,8 @@ sub testVersionMatch($) {
 		$response->protocol, $sv)
 	if $response->protocol ne $sv;
 
+    $client->shutdown();
+
     return sprintf("Client: %s Server: %s", $cv, $sv);
 }
 

@@ -57,6 +57,9 @@ sub testVary($) {
 	die "Incorrect body\n"
 	    if $response->content() ne $languages{$lang};
     }
+
+    $client->shutdown();
+    return 'OK';
 }
 
 sub ev_server_request($$$$) {

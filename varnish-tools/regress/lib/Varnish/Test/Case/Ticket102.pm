@@ -63,6 +63,8 @@ sub testBodyInCachedPOST($) {
 	    if $response->content ne $body;
     }
 
+    $client->shutdown();
+
     return 'OK';
 }
 
