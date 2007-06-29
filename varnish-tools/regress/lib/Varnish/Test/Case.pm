@@ -188,4 +188,10 @@ sub ev_client_timeout($$) {
     return $client;
 }
 
+sub usleep($$) {
+    my ($self, $usec) = @_;
+
+    select(undef, undef, undef, $usec / 1000000.0);
+}
+
 1;
