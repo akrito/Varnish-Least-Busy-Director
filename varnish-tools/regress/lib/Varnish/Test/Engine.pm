@@ -59,6 +59,7 @@ sub new($$;%) {
 
     %config = ('server_address' => 'localhost:8081',
 	       'varnish_address' => 'localhost:8080',
+	       'storage_spec' => 'file,/tmp/regress.bin,512k',
 	       %config);
 
     my $self = bless({ 'mux' => IO::Multiplex->new,

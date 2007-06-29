@@ -95,6 +95,7 @@ sub new($$;$) {
 	close STDERR_WRITE;
 
 	my @opts = ('-d', '-d',
+		    '-s', $engine->{'config'}->{'storage_spec'},
 		    '-a', $engine->{'config'}->{'varnish_address'},
 		    '-b', $engine->{'config'}->{'server_address'});
 
