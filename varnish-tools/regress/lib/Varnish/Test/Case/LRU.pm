@@ -33,18 +33,24 @@ package Varnish::Test::Case::LRU;
 use strict;
 use base 'Varnish::Test::Case';
 
-use Data::Dumper;
+our $prefix = __PACKAGE__;
 
 # Number of repetitions; total size of data set will be approximately
 # (25 * $repeat * $repeat), and needs to be larger than the size of
 # the storage file for the test to be meaningful.
 our $repeat = 256;
 
+our $DESCR = "Tests the LRU code by running more data through Varnish" .
+    " than the cache can hold, while simultaneously repeatedly requesting" .
+    " one particular object, which should remain in cache throughout.  The" .
+    " total amount of space consumed is approximately $repeat * round(" .
+    ((length(__PACKAGE__) + 5) * $repeat) . ", PAGE_SIZE).";
+
 sub _testLRU($$) {
     my ($self, $n) = @_;
 
     my $client = $self->new_client();
-    my $uri = "/Varnish/Test/Case/LRU/$n";
+    my $uri = __PACKAGE__ . "::$n";
     my $request = HTTP::Request->new('GET', $uri);
     $request->protocol('HTTP/1.1');
     $client->send_request($request, 2);
@@ -65,21 +71,36 @@ sub _testLRU($$) {
 sub testLRU($) {
     my ($self) = @_;
 
+    my $response = $self->_testLRU(0);
+    die "Invalid X-Varnish in response"
+	unless $response->header("X-Varnish") =~ m/^(\d+)$/;
+    my $xid0 = $1;
+
     # Send $repeat requests in an attempt to eat through the entire
-    # storage file.
+    # storage file.  Keep one object hot throughout.
     #
-    # XXX We should check to see if the child dies while we do this.
-    # XXX Currently, we will most likely get a client_timeout when
-    # XXX testing a pre-LRU version of Varnish.
-    for (my $n = 0; $n < $repeat; ++$n) {
+    #XXX We should check to see if the child dies while we do this.
+    #XXX Currently, when testing a pre-LRU version of Varnish, we will
+    #XXX most likely get a client timeout and the test framework will
+    #XXX get stuck.
+    for (my $n = 1; $n < $repeat; ++$n) {
+	# cold object
 	$self->_testLRU($n);
+
+	# Slow down!  If we run through the cache faster than the
+	# hysteresis in the LRU code, the hot object will be evicted.
+	$self->usleep(100000);
+
+	# hot object
+	$response = $self->_testLRU(0);
+	die "Cache miss on hot object"
+	    unless $response->header("X-Varnish") =~ m/^(\d+)\s+($xid0)$/o;
     }
 
-    # Redo the first request; if we get a cached response (indicated
-    # by a second XID in X-Varnish), the test is inconclusive and
-    # needs to be re-run with either a smaller storage file or a
-    # larger value for $repeat.
-    my $response = $self->_testLRU(0);
+    # Re-request an object which should have been evicted.  If we get
+    # a cache hit, the test is inconclusive and needs to be re-run
+    # with a smaller storage file or a larger value of $repeat.
+    $response = $self->_testLRU(1);
     die "Inconclusive test\n"
 	unless $response->header("X-Varnish") =~ m/^(\d+)$/;
 
@@ -92,7 +113,8 @@ sub ev_server_request($$$$) {
     my $body = $request->uri() x $repeat;
     my $response = HTTP::Response->new(200, undef,
 				       [ 'Content-Type', 'text/plain',
-					 'Content-Length', length($body) ],
+					 'Content-Length', length($body),
+					 'Cache-Control', 'max-age=3600', ],
 				       $body);
     $response->protocol('HTTP/1.1');
     $connection->send_response($response);
