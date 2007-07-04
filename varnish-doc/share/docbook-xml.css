@@ -138,7 +138,7 @@ para {
 /*
  * Lists
  */
-orderedlist, itemizedlist {
+orderedlist, itemizedlist, variablelist {
 	display: block;
 }
 
@@ -152,6 +152,21 @@ itemizedlist > listitem {
 	display: list-item;
 	list-style: disc outside;
 	margin-left: 4em;
+}
+
+variablelist > varlistentry {
+	display: list-item;
+	list-style: none;
+	margin-left: 4em;
+}
+
+varlistentry > term {
+	display: inline;
+	margin-left: -1em;
+}
+
+varlistentry > listitem {
+	display: inline;
 }
 
 /*
@@ -210,4 +225,20 @@ xref {
 
 xref:after {
 	content: "]";
+}
+
+/*
+ * Misc
+ */
+filename {
+	font-family: monospace;
+}
+
+function {
+	font-family: monospace;
+}
+
+function:after {
+	content: "()";
+	font-family: monospace;
 }
