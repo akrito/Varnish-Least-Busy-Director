@@ -2,8 +2,10 @@
 # $Id$
 #
 
-PROG	 = fetcher
-WARNS	?= 6
-MAN	 =
+PREFIX?=	${HOME}
+BINDIR?=	${DESTDIR}${PREFIX}/bin
 
-.include <bsd.prog.mk>
+all:
+
+install:
+	install -m 0755 fetcher.pl ${BINDIR}/fetcher
