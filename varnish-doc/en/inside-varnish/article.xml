@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/css" href="../../share/docbook-xml.css"?>
+<!DOCTYPE article
+ PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+ "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<article lang="en">
+  <articleinfo>
+    <releaseinfo role="cvs">$Id$</releaseinfo>
+    <title>Inside the Varnish HTTP Accelerator</title>
+  </articleinfo>
+
+  <section>
+    <title>Repository organization</title>
+
+    <para>The Varnish SVN repository is organized as follows:</para>
+
+    <variablelist>
+      <varlistentry>
+	<term><filename>branches</filename></term>
+	<listitem>
+	  <para>Branches of the main source tree, mainly for release
+	  engineering purposes.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>tags</filename></term>
+	<listitem>
+	  <para>Static copies of past releases.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><filename>trunk</filename></term>
+	<listitem>
+	  <para>This is where active development takes place.  Code
+	  is merged from here to a branch prior to a release.</para>
+	  <variablelist>
+	    <varlistentry>
+	      <term><filename>varnish-cache</filename></term>
+	      <listitem>
+		<para>Varnish itself, with its accompanying tools,
+		code libraries and man pages.</para>
+		<variablelist>
+		  <varlistentry>
+		    <term><filename>bin</filename></term>
+		    <listitem>
+		      <para>Programs, including Varnish itself.</para>
+		      <variablelist>
+			<varlistentry>
+			  <term><filename>varnishadm</filename></term>
+			  <listitem>
+			    <para>A command-line interface to the
+			    management port.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishd</filename></term>
+			  <listitem>
+			    <para>The Varnish HTTP accelerator
+			    itself.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishhist</filename></term>
+			  <listitem>
+			    <para>A tool that displays a histogram
+			    of requests grouped by processing time,
+			    using different symbols for hits and
+			    misses.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishlog</filename></term>
+			  <listitem>
+			    <para>An all-purpose log-watching and
+			    log-saving tool.  Mostly used to store
+			    log data for later processing by the
+			    other log-watching tools.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishncsa</filename></term>
+			  <listitem>
+			    <para>A log-watching tool that displays
+			    log data in the Apache / NCSA combined
+			    log format, suitable for further
+			    processing by standard log analysis
+			    tools such as AWStats.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishreplay</filename></term>
+			  <listitem>
+			    <para>A tool that reads Varnish log data
+			    and attempts to recreate the HTTP
+			    traffic that resulted in said data;
+			    useful for debugging and
+			    benchmarking.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishstat</filename></term>
+			  <listitem>
+			    <para>A tool that displays statistics
+			    from a running Varnish server.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>varnishtop</filename></term>
+			  <listitem>
+			    <para>A tool that reads Varnish log data
+			    and displays an ordered list of the most
+			    frequently reoccurring log
+			    entries.</para>
+			  </listitem>
+			</varlistentry>
+		      </variablelist>
+		    </listitem>
+		  </varlistentry>
+		  <varlistentry>
+		    <term><filename>include</filename></term>
+		    <listitem>
+		      <para>Header files for the code libraries.</para>
+		      <variablelist>
+			<varlistentry>
+			  <term><filename>compat</filename></term>
+			  <listitem>
+			    <para>Header files for <filename>libcompat</filename>.</para>
+			  </listitem>
+			</varlistentry>
+		      </variablelist>
+		    </listitem>
+		  </varlistentry>
+		  <varlistentry>
+		    <term><filename>lib</filename></term>
+		    <listitem>
+		      <para>Code libraries.</para>
+		      <variablelist>
+			<varlistentry>
+			  <term><filename>libcompat</filename></term>
+			  <listitem>
+			    <para>Compatibility library which
+			    implements a number of functions (such
+			    as <function>strlcpy</function> and
+			    <function>vasprintf</function>) which
+			    are present on some but not all of the
+			    platforms Varnish runs on.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>libvarnish</filename></term>
+			  <listitem>
+			    <para>Utility library which implements a
+			    number of non-Varnish-specific functions
+			    (including a CRC32 implementation and a
+			    generic binary heap implementation)
+			    which are used both by Varnish and some
+			    of the accompanying tools.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>libvarnishapi</filename></term>
+			  <listitem>
+			    <para>Interface library, not used by
+			    Varnish itself, but used by applications
+			    which need to interface with
+			    Varnish.</para>
+			  </listitem>
+			</varlistentry>
+			<varlistentry>
+			  <term><filename>libvcl</filename></term>
+			  <listitem>
+			    <para>VCL to C translator.</para>
+			  </listitem>
+			</varlistentry>
+		      </variablelist>
+		    </listitem>
+		  </varlistentry>
+		  <varlistentry>
+		    <term><filename>man</filename></term>
+		  </varlistentry>
+		</variablelist>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><filename>varnish-doc</filename></term>
+	      <listitem>
+		<para>The Varnish documentation, except man pages,
+		which are kept alongside the source code.</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><filename>varnish-tools</filename></term>
+	      <listitem>
+		<para>Various development and testing tools.</para>
+	      </listitem>
+	    </varlistentry>
+	  </variablelist>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section>
+    <title>The accelerator</title>
+
+    <section>
+      <title>Principles of operation</title>
+
+    </section>
+
+    <section>
+      <title>Subsystems</title>
+
+    </section>
+
+    <section>
+      <title>Data structures</title>
+
+    </section>
+  </section>
+
+  <section>
+    <title>The log tailers</title>
+
+    <section>
+      <title>varnishlog</title>
+
+    </section>
+
+    <section>
+      <title>varnishncsa</title>
+
+    </section>
+  </section>
+
+  <section>
+    <title>The statistics gatherers</title>
+
+    <section>
+      <title>varnishstat</title>
+
+    </section>
+
+    <section>
+      <title>varnishhist</title>
+
+    </section>
+
+    <section>
+      <title>varnishtop</title>
+
+    </section>
+  </section>
+
+  <section>
+    <title>The test framework</title>
+
+  </section>
+
+  <section>
+    <title>Plugins</title>
+
+    <para>The <filename>trunk/varnish-tools</filename> directory in
+    the Varnish repository contains Varnish plugins for several
+    popular system monitoring and administration frameworks.</para>
+
+    <section>
+      <title>Munin</title>
+
+    </section>
+
+    <section>
+      <title>Nagios</title>
+
+    </section>
+
+    <section>
+      <title>Webmin</title>
+
+    </section>
+  </section>
+
+  <section>
+    <title>Other tools</title>
+
+    <section>
+      <title>varnishadm</title>
+
+    </section>
+
+    <section>
+      <title>varnishreplay</title>
+
+    </section>
+
+    <section>
+      <title>fetcher</title>
+
+    </section>
+  </section>
+</article>
