@@ -1,0 +1,7 @@
+You will need the following Perl modules to run the test framework:
+
+Perl module		Debian package		FreeBSD port
+============================================================================
+LWP::UserAgent		libwww-perl		www/p5-libwww
+IO::Multiplex		libio-multiplex-perl	devel/p5-IO-Multiplex
+Template		libtemplate-perl	www/p5-Template-Toolkit
