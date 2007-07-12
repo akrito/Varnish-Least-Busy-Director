@@ -43,6 +43,9 @@ our %DONE;
 our %CHILD;
 our $BUSY;
 
+our $jobs = 1;
+our $delay = 0;
+
 sub new($$) {
     my ($this, $mux, $fh) = @_;
     my $class = ref($this) || $this;
@@ -77,6 +80,8 @@ sub run($$) {
 		$s->write("add $_\n");
 	    }
 	}
+	select(undef, undef, undef, $delay)
+	    if $delay;
 	$0 = "[fetcher] ready";
 	$s->write("ready\n");
     }
@@ -133,8 +138,8 @@ sub mux_input($$$$) {
     }
 }
 
-sub fetcher($@) {
-    my ($n, @urls) = @_;
+sub fetcher(@) {
+    my (@urls) = @_;
 
     my $mux = new IO::Multiplex;
 
@@ -145,7 +150,7 @@ sub fetcher($@) {
 
     # start children
     $BUSY = 0;
-    for (my $i = 0; $i < $n; ++$i) {
+    for (my $i = 0; $i < $jobs; ++$i) {
 	my ($s1, $s2);
 	socketpair($s1, $s2, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 	$s1->autoflush(1);
@@ -183,17 +188,17 @@ sub fetcher($@) {
 
 sub usage() {
 
-    print STDERR "usage: $0 [-j n] URL ...\n";
+    print STDERR "usage: $0 [-d n] [-j n] URL ...\n";
     exit(1);
 }
 
 MAIN:{
-    my $jobs = 1;
-    GetOptions("j|jobs=i" => \$jobs)
+    GetOptions("j|jobs=i" => \$jobs,
+	       "d|delay=i" => \$delay)
 	or usage();
     $jobs > 0
 	or usage();
     @ARGV
 	or usage();
-    fetcher($jobs, @ARGV);
+    fetcher(@ARGV);
 }
