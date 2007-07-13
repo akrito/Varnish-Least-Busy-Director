@@ -75,7 +75,7 @@ sub run($$) {
 	$0 = "[fetcher] checking $url";
 	if ($resp->header('Content-Type') =~ m/^text\//) {
 	    my %urls = map { $_ => 1 }
-	    ($resp->content =~ m/\b(?:href|src)=[\'\"](.+?)[\'\"]/g);
+		($resp->content =~ m/\b(?:href|src)=[\'\"]([^\'\"\?\#]+)(?:[\?\#][^\'\"]*)?[\'\"]/g);
 	    foreach (keys(%urls)) {
 		$s->write("add $_\n");
 	    }
