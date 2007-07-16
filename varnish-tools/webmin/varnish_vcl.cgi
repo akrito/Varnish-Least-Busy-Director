@@ -17,7 +17,7 @@ if (!($status eq '200')) {
 }
 
 print "<table border width=100%>";
-print "<tr $tb> <td><b>Available vcl files</b></td> </tr>\n";
+print "<tr $tb> <td><b>Available VCL scripts</b></td> </tr>\n";
 print "<tr $cb><td>";
 print "<form action=varnish_vcl_use.cgi method=post>";
 my $confname = "";
@@ -36,11 +36,11 @@ foreach my $line (split(/\n/, $res)) {
   $set = 0;
 }
 
-print "<input type=submit name=use value='Save change in active vcl file' />\n";
+print "<input type=submit name=use value='Switch to selected' />\n";
 print "</form>";
 
 print "</td></tr>";
-print "<tr $tb> <td><b>Upload new vcl file</b></td> </tr>\n";
+print "<tr $tb> <td><b>Upload new VCL file</b></td> </tr>\n";
 print "<tr $cb><td><table width=100%>";
 print "<form action=varnish_vcl_upload.cgi enctype=multipart/form-data method=post>";
 print "<tr><td>";
