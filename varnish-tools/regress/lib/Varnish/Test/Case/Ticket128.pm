@@ -57,7 +57,7 @@ sub testSyntheticError($) {
     die "Incorrect response code\n"
 	if $response->code != $CODE;
     die "Incorrect response message\n"
-	unless index($response->content, $MESSAGE);
+	unless $response->content =~ m/\Q$MESSAGE\E/o;
 
     $client->shutdown();
 
