@@ -37,24 +37,63 @@ our %ASPECTS = (
     'ratio' => {
 	'title' => 'Hit / miss ratio',
 	'type' => 'percent',
+	'order' => [ 'hit', 'miss' ],
 	'values' => {
 	    'hit' => {
 		'label' => 'hits',
 		'numerator' => 'cache_hit',
-		'denominator' => 'client_req',
+		'denominator' => [ '+', 'cache_hit', 'cache_miss' ],
 	    },
 	    'miss' => {
 		'label' => 'misses',
 		'numerator' => 'cache_miss',
-		'denominator' => 'client_req',
+		'denominator' => [ '+', 'cache_hit', 'cache_miss' ],
+	    },
+	},
+    },
+    'usage' => {
+	'title' => 'Cache file usage',
+	'type' => 'percent',
+	'order' => [ 'used', 'free' ],
+	'values' => {
+	    'used' => {
+		'label' => 'used',
+		'numerator' => 'sm_balloc',
+		'denominator' => [ '+', 'sm_balloc', 'sm_bfree' ],
+	    },
+	    'free' => {
+		'label' => 'free',
+		'numerator' => 'sm_bfree',
+		'denominator' => [ '+', 'sm_balloc', 'sm_bfree' ],
 	    },
 	},
     },
 );
 
+sub varnishstat($);
 sub varnishstat($) {
     my $field = shift;
 
+    if (ref($field) eq 'ARRAY') {
+	die "Too few terms in $field"
+	    if @$field < 2;
+	my $acc = varnishstat($$field[1]);
+
+	foreach (@$field[2..$#$field]) {
+	    if ($$field[0] eq '+') {
+		$acc += varnishstat($_);
+	    } elsif ($$field[0] eq '-') {
+		$acc -= varnishstat($_);
+	    } elsif ($$field[0] eq '*') {
+		$acc *= varnishstat($_);
+	    } elsif ($$field[0] eq '/') {
+		$acc /= varnishstat($_);
+	    } else {
+		die "Invalid spec for $field\n";
+	    }
+	}
+	return $acc;
+    }
     die "no such field: $field\n"
 	unless defined($varnishstat{$field});
     return $varnishstat{$field};
@@ -80,11 +119,19 @@ sub value($$) {
     }
 }
 
+sub order($) {
+    my $aspect = shift;
+
+    return (@{$aspect->{'order'}})
+	if (defined($aspect->{'order'}));
+    return (sort(keys(%{$aspect->{'values'}})));
+}
+
 sub measure($) {
     my $aspect = shift;
 
     defined($aspect) || die "oops";
-    my @order = $aspect->{'order'} || sort(keys(%{$aspect->{'values'}}));
+    my @order = order($aspect);
     foreach (@order) {
 	print "$_.value ",
 	    value($aspect->{'values'}->{$_}, $aspect->{'type'}),
@@ -101,7 +148,7 @@ sub config($) {
     if ($aspect->{'type'} eq 'percent') {
 	print "graph_scale no\n";
     }
-    my @order = $aspect->{'order'} || sort(keys(%{$aspect->{'values'}}));
+    my @order = order($aspect);
     print "graph_order ", join(' ', @order), "\n";
     foreach (@order) {
 	my $value = $aspect->{'values'}->{$_};
