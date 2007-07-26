@@ -51,72 +51,71 @@ sub testPagePurged($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
-    #for (my $i = 0; $i < 2; $i++) {
-	my $get_p_request = HTTP::Request->new('GET', '/purge');
-	$get_p_request->protocol('HTTP/1.1');
-	my $get_k_request = HTTP::Request->new('GET', '/keep');
-	$get_k_request->protocol('HTTP/1.1');
-	my $purge_request = HTTP::Request->new('REPURGE', '/purge');
-        $purge_request->protocol('HTTP/1.1');
-        
-	
-	# Fetch the two pages, so they'll get cached
-	$client->send_request($get_p_request, 2);
-	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
+    my $get_p_request = HTTP::Request->new('GET', '/purge');
+    $get_p_request->protocol('HTTP/1.1');
+    my $get_k_request = HTTP::Request->new('GET', '/keep');
+    $get_k_request->protocol('HTTP/1.1');
+    my $purge_request = HTTP::Request->new('REPURGE', '/purge');
+    $purge_request->protocol('HTTP/1.1');
 
-        $client->send_request($get_k_request, 2);
-	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
 
-        
-        # Check that the purge page is cached
-	$client->send_request($get_p_request, 2);
-	($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
-	die "Not cached\n"
-	    if $response->header('x-varnish') !~ /\d+ \d+/;
-	    
-		      
-        # Purge the purge page
-        $client->send_request($purge_request, 2);
-        ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-        # For some reason it times out on the first attempt, so we have to run the
-        # loop an extra time to get the response. Could this be a bug in the framework?
-        ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout')
-        	if $event eq 'ev_client_timeout';
+    # Fetch the two pages, so they'll get cached
+    $client->send_request($get_p_request, 2);
+    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $event eq 'ev_client_timeout';
+    die "Empty body\n"
+	if $response->content eq '';
 
-	
-	# Check that the purge page is no longer cached
-	$client->send_request($get_p_request, 2);
-	($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
-	die "Still Cached\n"
-	    if $response->header('x-varnish') =~ /\d+ \d+/;
-	
-	
-	# Check that the keep page is still cached
-	$client->send_request($get_k_request, 2);
-	($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
-	die "Still Cached\n"
-	    if $response->header('x-varnish') !~ /\d+ \d+/;
-	
+    $client->send_request($get_k_request, 2);
+    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $event eq 'ev_client_timeout';
+    die "Empty body\n"
+	if $response->content eq '';
+
+
+    # Check that the purge page is cached
+    $client->send_request($get_p_request, 2);
+    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $event eq 'ev_client_timeout';
+    die "Empty body\n"
+	if $response->content eq '';
+    die "Not cached\n"
+	if $response->header('x-varnish') !~ /\d+ \d+/;
+
+
+    # Purge the purge page
+    $client->send_request($purge_request, 2);
+    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    # For some reason it times out on the first attempt, so we have to run the
+    # loop an extra time to get the response. Could this be a bug in the framework?
+    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout')
+	if $event eq 'ev_client_timeout';
+
+
+    # Check that the purge page is no longer cached
+    $client->send_request($get_p_request, 2);
+    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $event eq 'ev_client_timeout';
+    die "Empty body\n"
+	if $response->content eq '';
+    die "Still Cached\n"
+	if $response->header('x-varnish') =~ /\d+ \d+/;
+
+
+    # Check that the keep page is still cached
+    $client->send_request($get_k_request, 2);
+    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $event eq 'ev_client_timeout';
+    die "Empty body\n"
+	if $response->content eq '';
+    die "Still Cached\n"
+	if $response->header('x-varnish') !~ /\d+ \d+/;
+
 
     $client->shutdown();
 
@@ -129,10 +128,10 @@ sub ev_server_request($$$$) {
 
     # Return the right content
     if ($request->uri =~ /purge/) {
-      $body = $body_p;
+	$body = $body_p;
     }
     elsif ($request->uri =~ /keep/) {
-      $body = $body_k;
+	$body = $body_k;
     }
 
     my $response = HTTP::Response->new(200, undef,
