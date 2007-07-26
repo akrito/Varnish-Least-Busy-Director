@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #-
-# Copyright (c) 2006 Linpro AS
+# Copyright (c) 2007 Linpro AS
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
