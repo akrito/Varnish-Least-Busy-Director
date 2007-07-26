@@ -28,7 +28,7 @@
 # $Id$
 #
 
-package Varnish::Test::Case::HTTPregexPurge;
+package Varnish::Test::Case::RePurge;
 
 use strict;
 use base 'Varnish::Test::Case';
