@@ -33,6 +33,9 @@ package Varnish::Test::Case::Ticket056;
 use strict;
 use base 'Varnish::Test::Case';
 
+our $DESCR = "Checks that Varnish passes the correct HTTP version" .
+    " to both server and client in pass mode.";
+
 our $VCL = "
 sub vcl_recv {
     pass;
@@ -53,7 +56,8 @@ sub testVersionMatch($) {
     $request->protocol($cv);
     $client->send_request($request, 2);
 
-    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    my ($event, $response) =
+	$self->run_loop('ev_client_response', 'ev_client_timeout');
 
     die "Client time-out before receiving a (complete) response\n"
 	if $event eq 'ev_client_timeout';
@@ -82,14 +86,12 @@ sub run($) {
     delete $self->{'cv', 'sv'};
 }
 
-sub ev_server_request($$$$) {
-    my ($self, $server, $connection, $request) = @_;
+sub server($$$) {
+    my ($self, $request, $response) = @_;
 
-    my $response = HTTP::Response->new(404, undef, undef,
-				       sprintf ("%s not found\n", $request->uri));
+    $response->code(404);
+    $response->content(sprintf("%s not found\n", $request->uri));
     $response->protocol($self->{'sv'});
-    $connection->send_response($response);
-    $connection->shutdown;
 }
 
 1;

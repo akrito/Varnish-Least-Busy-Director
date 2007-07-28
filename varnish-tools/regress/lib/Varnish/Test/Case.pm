@@ -51,6 +51,7 @@ use strict;
 use Varnish::Test::Client;
 use HTTP::Request;
 use HTTP::Response;
+use POSIX qw(strftime);
 use Time::HiRes qw(gettimeofday tv_interval);
 
 sub new($$) {
@@ -175,6 +176,10 @@ sub results($) {
     };
 }
 
+#
+# Default event handlers
+#
+
 sub ev_client_response($$$) {
     my ($self, $client, $response) = @_;
 
@@ -187,6 +192,159 @@ sub ev_client_timeout($$) {
     $client->shutdown(2);
     return $client;
 }
+
+sub ev_server_request($$$$) {
+    my ($self, $server, $connection, $request) = @_;
+
+    no strict 'refs';
+    my $method = $request->method();
+    my $handler;
+    if ($self->can("server_$method")) {
+	$handler = ref($self) . "::server_$method";
+    } elsif ($self->can("server")) {
+	$handler = ref($self) . "::server";
+    } else {
+	die "No server callback defined\n";
+    }
+
+    my $response = HTTP::Response->new();
+    $response->code(200);
+    $response->header('Date' =>
+	strftime("%a, %d %b %Y %T GMT", gmtime(time())));
+    $response->header('Server' => ref($self));
+    $response->header('Connection' => 'keep-alive');
+    $response->content('');
+    $response->protocol('HTTP/1.1');
+    $self->$handler($request, $response);
+    $response->header('Content-Length' =>
+		      length($response->content()));
+    $connection->send_response($response);
+}
+
+#
+# Client utilities
+#
+
+sub request($$$$;$$) {
+    my ($self, $client, $method, $uri, $header, $content) = @_;
+
+    my $req = HTTP::Request->new($method, $uri, $header, $content);
+    $req->protocol('HTTP/1.1');
+    $client->send_request($req, 2);
+    my ($ev, $resp) =
+	$self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Internal error\n"
+	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
+    die "Client time-out before receiving a (complete) response\n"
+	if $ev eq 'ev_client_timeout';
+    die "No X-Varnish header\n"
+	unless $resp->header('X-Varnish');
+    $resp->request($req);
+    return $self->{'cached_response'} = $resp;
+}
+
+sub head($$$;$) {
+    my ($self, $client, $uri, $header) = @_;
+
+    return $self->request($client, 'HEAD', $uri, $header);
+}
+
+sub get($$$;$) {
+    my ($self, $client, $uri, $header) = @_;
+
+    return $self->request($client, 'GET', $uri, $header);
+}
+
+sub post($$$;$$) {
+    my ($self, $client, $uri, $header, $body) = @_;
+
+    $header = []
+	unless defined($header);
+    push(@{$header}, 'content-length', length($body))
+	if defined($body);
+    return $self->request($client, 'POST', $uri, $header, $body);
+}
+
+sub assert_code($$;$) {
+    my ($self, $code, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+    die "Expected $code, got @{[$resp->code]}\n"
+	unless $resp->code == $code;
+}
+
+sub assert_ok($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    $self->assert_code(200, $resp);
+}
+
+sub assert_cached($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    my $uri = $resp->request->uri;
+    die "$uri should be cached but isn't\n"
+	unless $resp->header('X-Varnish') =~ /^\d+ \d+$/;
+}
+
+sub assert_uncached($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    my $uri = $resp->request->uri;
+    die "$uri shouldn't be cached but is\n"
+	if $resp->header('X-Varnish') =~ /^\d+ \d+$/;
+}
+
+sub assert_header($$;$$) {
+    my ($self, $header, $re, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    die "$header: header missing\n"
+	unless defined($resp->header($header));
+    if (defined($re)) {
+	die "$header: header does not match\n"
+	    unless $resp->header($header) =~ m/$re/;
+    }
+}
+
+sub assert_body($;$$) {
+    my ($self, $re, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    die "Response has no body\n"
+	unless defined($resp->content());
+    if (defined($re)) {
+	die "Response body does not match\n"
+	    unless $resp->content() =~ m/$re/;
+    }
+}
+
+sub assert_no_body($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+    die "Response shouldn't have a body, but does\n"
+	if defined($resp->content()) && length($resp->content());
+}
+
+#
+# Miscellaneous
+#
 
 sub usleep($$) {
     my ($self, $usec) = @_;

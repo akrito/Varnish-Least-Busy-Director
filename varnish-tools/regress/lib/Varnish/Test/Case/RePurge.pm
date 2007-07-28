@@ -33,7 +33,10 @@ package Varnish::Test::Case::RePurge;
 use strict;
 use base 'Varnish::Test::Case';
 
-use Data::Dumper;
+our $DESCR = "Tests the VCL purge() function by warming up the cache," .
+    " then submitting a request that causes part of it to be purged," .
+    " before finally verifying that the objects that should have been" .
+    " purged were and those that shouldn't weren't.";
 
 our $VCL = <<EOVCL;
 sub vcl_recv {
@@ -48,69 +51,35 @@ our $KEEP_URL = '/will-be-kept';
 our $PURGE_URL = '/will-be-purged';
 our $PURGE_RE = 'purge';
 
-sub get($$$) {
-    my ($self, $client, $url) = @_;
-
-    my $req = HTTP::Request->new('GET', $url);
-    $req->protocol('HTTP/1.1');
-    $client->send_request($req, 2);
-    my ($ev, $resp) =
-	$self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $ev eq 'ev_client_timeout';
-    die "Request failed\n"
-	unless $resp->code == 200;
-    return $resp;
-}
-
-sub get_cached($$$) {
-    my ($self, $client, $url) = @_;
-
-    my $resp = $self->get($client, $url);
-    die "$url should be cached but isn't\n"
-	unless $resp->header('x-varnish') =~ /^\d+ \d+$/;
-}
-
-sub get_uncached($$$) {
-    my ($self, $client, $url) = @_;
-
-    my $resp = $self->get($client, $url);
-    die "$url shouldn't be cached but is\n"
-	if $resp->header('x-varnish') =~ /^\d+ \d+$/;
-}
-
-sub purge($$$) {
-    my ($self, $client, $re) = @_;
-
-    my $req = HTTP::Request->new('REPURGE', $re);
-    $req->protocol('HTTP/1.1');
-    $client->send_request($req, 2);
-    my ($ev, $resp) =
-	$self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $ev eq 'ev_client_timeout';
-}
-
 sub testPagePurged($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
-    my $resp;
 
     # Warm up the cache
     $self->get($client, $KEEP_URL);
+    $self->assert_ok();
     $self->get($client, $PURGE_URL);
+    $self->assert_ok();
 
     # Verify the state of the cache
-    $self->get_cached($client, $KEEP_URL);
-    $self->get_cached($client, $PURGE_URL);
+    $self->get($client, $KEEP_URL);
+    $self->assert_ok();
+    $self->assert_cached();
+    $self->get($client, $PURGE_URL);
+    $self->assert_ok();
+    $self->assert_cached();
 
     # Send the purge request
-    $self->purge($client, $PURGE_RE);
+    $self->request($client, 'REPURGE', $PURGE_RE);
 
     # Verify the state of the cache
-    $self->get_cached($client, $KEEP_URL);
-    $self->get_uncached($client, $PURGE_URL);
+    $self->get($client, $KEEP_URL);
+    $self->assert_ok();
+    $self->assert_cached();
+    $self->get($client, $PURGE_URL);
+    $self->assert_ok();
+    $self->assert_uncached();
 
     $client->shutdown();
 

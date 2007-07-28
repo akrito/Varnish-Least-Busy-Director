@@ -33,6 +33,8 @@ package Varnish::Test::Case::Ticket128;
 use strict;
 use base 'Varnish::Test::Case';
 
+our $DESCR = "Tests the synthetic error response code.";
+
 our $CODE = 400;
 our $MESSAGE = "These are not the droids you are looking for";
 
@@ -46,19 +48,9 @@ sub testSyntheticError($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
-    my $request = HTTP::Request->new('GET', '/');
-    $request->protocol('HTTP/1.0');
-    $client->send_request($request, 2);
-
-    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Incorrect response code\n"
-	if $response->code != $CODE;
-    die "Incorrect response message\n"
-	unless $response->content =~ m/\Q$MESSAGE\E/o;
-
+    $self->get($client, '/');
+    $self->assert_code($CODE);
+    $self->assert_body(qr/\Q$MESSAGE\E/);
     $client->shutdown();
 
     return 'OK';

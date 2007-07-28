@@ -51,19 +51,8 @@ sub _testLRU($$) {
 
     my $client = $self->new_client();
     my $uri = __PACKAGE__ . "::$n";
-    my $request = HTTP::Request->new('GET', $uri);
-    $request->protocol('HTTP/1.1');
-    $client->send_request($request, 2);
-    my ($event, $response) =
-	$self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Timed out\n"
-	if ($event eq 'ev_client_timeout');
-    die "No (complete) response received\n"
-	unless defined($response);
-    die "Empty body\n"
-	if $response->content() eq '';
-    die "Incorrect body\n"
-	if $response->content() !~ m/^(?:\Q$uri\E){$repeat}$/;
+    my $response = $self->get($client, $uri);
+    $self->assert_body(qr/^(?:\Q$uri\E){$repeat}$/);
     $client->shutdown();
     return $response;
 }
@@ -107,17 +96,11 @@ sub testLRU($) {
     return 'OK';
 }
 
-sub ev_server_request($$$$) {
-    my ($self, $server, $connection, $request) = @_;
+sub server($$$) {
+    my ($self, $request, $response) = @_;
 
-    my $body = $request->uri() x $repeat;
-    my $response = HTTP::Response->new(200, undef,
-				       [ 'Content-Type', 'text/plain',
-					 'Content-Length', length($body),
-					 'Cache-Control', 'max-age=3600', ],
-				       $body);
-    $response->protocol('HTTP/1.1');
-    $connection->send_response($response);
+    $response->content($request->uri() x $repeat);
+    $response->header('Cache-Control' => 'max-age=3600');
 }
 
 1;

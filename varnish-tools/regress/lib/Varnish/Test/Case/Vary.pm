@@ -33,6 +33,10 @@ package Varnish::Test::Case::Vary;
 use strict;
 use base 'Varnish::Test::Case';
 
+our $DESCR = "Tests Vary: support by requesting the same document" .
+    " in different languages and verifying that the correct version" .
+    " is returned and cached.";
+
 our %languages = (
     'en' => "Hello World!\n",
     'no' => "Hallo Verden!\n",
@@ -41,48 +45,36 @@ our %languages = (
 sub testVary($) {
     my ($self) = @_;
 
-    my $client = $self->new_client;
-    my $request = HTTP::Request->new('GET', '/');
+    my $client = $self->new_client();
 
     foreach my $lang (keys %languages) {
-	$request->header('Accept-Language', $lang);
-	$request->protocol('HTTP/1.1');
-	$client->send_request($request, 2);
-	my ($event, $response) =
-	    $self->run_loop('ev_client_response', 'ev_client_timeout');
-	die "No (complete) response received\n"
-	    unless defined($response);
-	die "Empty body\n"
-	    if $response->content() eq '';
-	die "Incorrect body\n"
-	    if $response->content() ne $languages{$lang};
+	$self->get($client, '/', [ 'Accept-Language', $lang]);
+	# $self->assert_uncached();
+	$self->assert_header('Language', $lang);
+	$self->assert_body($languages{$lang});
+    }
+    foreach my $lang (keys %languages) {
+	$self->get($client, '/', [ 'Accept-Language', $lang]);
+	$self->assert_cached();
+	$self->assert_body($languages{$lang});
     }
 
     $client->shutdown();
     return 'OK';
 }
 
-sub ev_server_request($$$$) {
-    my ($self, $server, $connection, $request) = @_;
+sub server($$$) {
+    my ($self, $request, $response) = @_;
 
-    my $body;
-    my @headers;
     if (my $lang = $request->header("Accept-Language")) {
 	$lang = 'en'
 	    unless ($lang && $languages{$lang});
-	$body = $languages{$lang};
-	push(@headers, ('Language', $lang));
+	$response->content($languages{$lang});
+	$response->header('Language' => $lang);
+	$response->header('Vary' => 'Accept-Language');
     } else {
 	die 'Not ready for this!';
     }
-
-    my $response = HTTP::Response->new(200, undef,
-				       [ 'Content-Length', length($body),
-					 'Vary', 'Accept-Language',
-					 @headers ],
-				       $body);
-    $response->protocol('HTTP/1.1');
-    $connection->send_response($response);
 }
 
 1;

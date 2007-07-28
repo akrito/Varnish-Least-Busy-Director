@@ -33,6 +33,9 @@ package Varnish::Test::Case::Ticket102;
 use strict;
 use base 'Varnish::Test::Case';
 
+our $DESCR = "Checks that Varnish includes the response body when" .
+    " handling GET and POST, but not when handling HEAD.";
+
 our $VCL = <<EOVCL;
 sub vcl_recv {
 	if (req.request == "POST" &&
@@ -42,41 +45,34 @@ sub vcl_recv {
 }
 EOVCL
 
-our $body = "Hello World!\n";
+our $BODY = "Hello World!\n";
 
 sub testBodyInCachedPOST($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
-    for (my $i = 0; $i < 2; $i++) {
-	my $request = HTTP::Request->new('POST', '/');
-	$request->protocol('HTTP/1.1');
-	$client->send_request($request, 2);
 
-	my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
+    $self->get($client, '/');
+    $self->assert_body($BODY);
+    $self->assert_uncached();
 
-	die "Client time-out before receiving a (complete) response\n"
-	    if $event eq 'ev_client_timeout';
-	die "Empty body\n"
-	    if $response->content eq '';
-	die "Incorrect body\n"
-	    if $response->content ne $body;
-    }
+    $self->post($client, '/');
+    $self->assert_body($BODY);
+    $self->assert_cached();
+
+    $self->head($client, '/');
+    $self->assert_no_body();
+    $self->assert_cached();
 
     $client->shutdown();
 
     return 'OK';
 }
 
-sub ev_server_request($$$$) {
-    my ($self, $server, $connection, $request) = @_;
+sub server($$$) {
+    my ($self, $request, $response) = @_;
 
-    my $response = HTTP::Response->new(200, undef,
-				       [ 'Content-Length', length($body),
-					 'Connection', 'Keep-Alive' ],
-				       $body);
-    $response->protocol('HTTP/1.1');
-    $connection->send_response($response);
+    $response->content($BODY);
 }
 
 1;
