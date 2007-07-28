@@ -44,78 +44,73 @@ sub vcl_recv {
 }
 EOVCL
 
-our $body_p = "Hello World! -> purge\n";
-our $body_k = "Hello World! -> keep\n";
+our $KEEP_URL = '/will-be-kept';
+our $PURGE_URL = '/will-be-purged';
+our $PURGE_RE = 'purge';
+
+sub get($$$) {
+    my ($self, $client, $url) = @_;
+
+    my $req = HTTP::Request->new('GET', $url);
+    $req->protocol('HTTP/1.1');
+    $client->send_request($req, 2);
+    my ($ev, $resp) =
+	$self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $ev eq 'ev_client_timeout';
+    die "Request failed\n"
+	unless $resp->code == 200;
+    return $resp;
+}
+
+sub get_cached($$$) {
+    my ($self, $client, $url) = @_;
+
+    my $resp = $self->get($client, $url);
+    die "$url should be cached but isn't\n"
+	unless $resp->header('x-varnish') =~ /^\d+ \d+$/;
+}
+
+sub get_uncached($$$) {
+    my ($self, $client, $url) = @_;
+
+    my $resp = $self->get($client, $url);
+    die "$url shouldn't be cached but is\n"
+	if $resp->header('x-varnish') =~ /^\d+ \d+$/;
+}
+
+sub purge($$$) {
+    my ($self, $client, $re) = @_;
+
+    my $req = HTTP::Request->new('REPURGE', $re);
+    $req->protocol('HTTP/1.1');
+    $client->send_request($req, 2);
+    my ($ev, $resp) =
+	$self->run_loop('ev_client_response', 'ev_client_timeout');
+    die "Client time-out before receiving a (complete) response\n"
+	if $ev eq 'ev_client_timeout';
+}
 
 sub testPagePurged($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
-    my $get_p_request = HTTP::Request->new('GET', '/purge');
-    $get_p_request->protocol('HTTP/1.1');
-    my $get_k_request = HTTP::Request->new('GET', '/keep');
-    $get_k_request->protocol('HTTP/1.1');
-    my $purge_request = HTTP::Request->new('REPURGE', '/purge');
-    $purge_request->protocol('HTTP/1.1');
+    my $resp;
 
+    # Warm up the cache
+    $self->get($client, $KEEP_URL);
+    $self->get($client, $PURGE_URL);
 
-    # Fetch the two pages, so they'll get cached
-    $client->send_request($get_p_request, 2);
-    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Empty body\n"
-	if $response->content eq '';
+    # Verify the state of the cache
+    $self->get_cached($client, $KEEP_URL);
+    $self->get_cached($client, $PURGE_URL);
 
-    $client->send_request($get_k_request, 2);
-    my ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Empty body\n"
-	if $response->content eq '';
+    # Send the purge request
+    $self->purge($client, $PURGE_RE);
 
-
-    # Check that the purge page is cached
-    $client->send_request($get_p_request, 2);
-    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Empty body\n"
-	if $response->content eq '';
-    die "Not cached\n"
-	if $response->header('x-varnish') !~ /\d+ \d+/;
-
-
-    # Purge the purge page
-    $client->send_request($purge_request, 2);
-    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    # For some reason it times out on the first attempt, so we have to run the
-    # loop an extra time to get the response. Could this be a bug in the framework?
-    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout')
-	if $event eq 'ev_client_timeout';
-
-
-    # Check that the purge page is no longer cached
-    $client->send_request($get_p_request, 2);
-    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Empty body\n"
-	if $response->content eq '';
-    die "Still Cached\n"
-	if $response->header('x-varnish') =~ /\d+ \d+/;
-
-
-    # Check that the keep page is still cached
-    $client->send_request($get_k_request, 2);
-    ($event, $response) = $self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
-	if $event eq 'ev_client_timeout';
-    die "Empty body\n"
-	if $response->content eq '';
-    die "Still Cached\n"
-	if $response->header('x-varnish') !~ /\d+ \d+/;
-
+    # Verify the state of the cache
+    $self->get_cached($client, $KEEP_URL);
+    $self->get_uncached($client, $PURGE_URL);
 
     $client->shutdown();
 
@@ -124,16 +119,8 @@ sub testPagePurged($) {
 
 sub ev_server_request($$$$) {
     my ($self, $server, $connection, $request) = @_;
-    my $body = "";
 
-    # Return the right content
-    if ($request->uri =~ /purge/) {
-	$body = $body_p;
-    }
-    elsif ($request->uri =~ /keep/) {
-	$body = $body_k;
-    }
-
+    my $body = $request->url;
     my $response = HTTP::Response->new(200, undef,
 				       [ 'Content-Length', length($body),
 					 'Connection', 'Keep-Alive' ],
