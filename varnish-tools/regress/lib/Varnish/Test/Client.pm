@@ -122,11 +122,19 @@ sub mux_input($$$$) {
 		$$data = '';
 		$self->got_response($response);
 	    }
+	    elsif ($data_length == 0) {
+		# We got a body-less response, which may or may not
+		# be correct; leave it to the test case to decide.
+		$self->log("No body received despite" .
+			   " Content-Length $content_length");
+		$$data = '';
+		$self->got_response($response);
+	    }
 	    elsif ($data_length < $content_length) {
 		# We only received the first part of an HTTP message,
 		# so break out of loop and wait for more.
-		$self->log(sprintf('Partial response. Bytes in body: %d received, %d expected, %d remaining',
-				   $data_length, $content_length, $content_length - $data_length));
+		$self->log("Partial body received" .
+			   " ($data_length of $content_length bytes)");
 		last;
 	    }
 	    else {
