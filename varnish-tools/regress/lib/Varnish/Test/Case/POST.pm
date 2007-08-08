@@ -95,7 +95,13 @@ sub testCachePOST($) {
     return 'OK';
 }
 
-sub server_post($$$$) {
+sub server_get($$$) {
+    my ($self, $request, $response) = @_;
+
+    die "Got GET request instead of POST\n";
+}
+
+sub server_post($$$) {
     my ($self, $request, $response) = @_;
 
     if ($request->content()) {
