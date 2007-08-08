@@ -59,7 +59,8 @@ sub new($$;%) {
 
     %config = ('server_address' => 'localhost:8081',
 	       'varnish_address' => 'localhost:8080',
-	       'storage_spec' => 'file,/tmp/regress.bin,512k',
+	       'varnish_name' => 'regress',
+	       'storage_spec' => 'file,regress.bin,512k',
 	       %config);
 
     my $self = bless({ 'mux' => IO::Multiplex->new,
@@ -107,9 +108,10 @@ sub run_loop($@) {
 
     $self->{'wait_for'} = \@wait_for;
     $self->{'in_loop'} = 1;
-    $self->{'mux'}->loop;
+    eval { $self->{'mux'}->loop; };
     delete $self->{'in_loop'};
     delete $self->{'wait_for'};
+    die $@ if ($@);
 
     # Loop has now been paused due to the occurrence of an event we
     # were waiting for. This event is always found in the front of the

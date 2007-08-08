@@ -96,6 +96,7 @@ sub new($$;$) {
 
 	my @opts = ('-d', '-d',
 		    '-s', $engine->{'config'}->{'storage_spec'},
+		    '-n', $engine->{'config'}->{'varnish_name'},
 		    '-a', $engine->{'config'}->{'varnish_address'},
 		    '-b', $engine->{'config'}->{'server_address'});
 
