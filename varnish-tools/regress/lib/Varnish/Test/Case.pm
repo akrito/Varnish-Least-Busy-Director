@@ -197,7 +197,7 @@ sub ev_server_request($$$$) {
     my ($self, $server, $connection, $request) = @_;
 
     no strict 'refs';
-    my $method = $request->method();
+    my $method = lc($request->method());
     my $handler;
     if ($self->can("server_$method")) {
 	$handler = ref($self) . "::server_$method";
@@ -228,15 +228,26 @@ sub ev_server_request($$$$) {
 sub request($$$$;$$) {
     my ($self, $client, $method, $uri, $header, $content) = @_;
 
-    my $req = HTTP::Request->new($method, $uri, $header, $content);
+    my $req = HTTP::Request->new($method, $uri, $header);
     $req->protocol('HTTP/1.1');
+    $req->header('Host' => 'varnish.example.com')
+	unless $req->header('Host');
+    $req->header('User-Agent' => ref($self))
+	unless $req->header('User-Agent');
+    if (defined($content)) {
+	$req->header('Content-Type' => 'text/plain')
+	    unless ($req->header('Content-Type'));
+	$req->header('Content-Length' => length($content))
+	    unless ($req->header('Content-Length'));
+	$req->content($content);
+    }
     $client->send_request($req, 2);
     my ($ev, $resp) =
 	$self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Internal error\n"
-	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
     die "Client time-out before receiving a (complete) response\n"
 	if $ev eq 'ev_client_timeout';
+    die "Internal error\n"
+	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
     die "No X-Varnish header\n"
 	unless $resp->header('X-Varnish');
     $resp->request($req);
@@ -260,8 +271,6 @@ sub post($$$;$$) {
 
     $header = []
 	unless defined($header);
-    push(@{$header}, 'content-length', length($body))
-	if defined($body);
     return $self->request($client, 'POST', $uri, $header, $body);
 }
 
