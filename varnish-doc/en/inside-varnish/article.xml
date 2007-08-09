@@ -177,6 +177,9 @@
 		  </varlistentry>
 		  <varlistentry>
 		    <term><filename>man</filename></term>
+		    <listitem>
+		      <para>Additional man pages.</para>
+		    </listitem>
 		  </varlistentry>
 		</variablelist>
 	      </listitem>
@@ -206,16 +209,61 @@
     <section>
       <title>Principles of operation</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>Subsystems</title>
 
+      <section>
+	<title>The management interface</title>
+
+	<para>The management interface allows a person or process to
+	control certain aspects of the accelerator while it is
+	running, such as inspecting and setting run-time parameters,
+	starting and stopping the child process, and purging
+	objects.</para>
+
+	<para>The commands accepted by the management interface fall
+	in two categories: management commands and child commands.
+	The former are handled by the management (parent) process,
+	while the latter are passed unmodified to the child process
+	and handled there.</para>
+
+	<para>The management interface uses an extremely simple
+	text-based protocol described below.</para>
+
+	<para>The user sends a single line of text consisting of one
+	or more words separated by linear whitespace, terminated by a
+	newline character.  Words which contain linear whitespace must
+	be placed in double quotes; newline characters must be sent as
+	<literal>\n</literal>, backslash characters as
+	<literal>\\</literal> and double quote characters as
+	<literal>\"</literal>.</para>
+
+	<para>The first word sent by the client is the command name,
+	and subsequent words are command arguments.</para>
+
+	<para>The management process responds with a line consisting
+	of a three-digit status code, linear whitespace, a byte count,
+	and a newline character.  If the byte count is non-zero, this
+	line is followed by that many bytes of additional data, plus a
+	newline character.</para>
+
+	<para>Status code 200 indicates success; all other codes
+	indicate some kind of failure.  Status codes between 100 and
+	199 indicate a syntax error, an unknown command, or issues
+	with the number or nature of the arguments.  Status codes
+	between 300 and 399 indicate a failure to carry out the
+	requested operation.  The status code 400 indicates a
+	communications error.</para>
+      </section>
     </section>
 
     <section>
       <title>Data structures</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
   </section>
 
@@ -225,11 +273,13 @@
     <section>
       <title>varnishlog</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>varnishncsa</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
   </section>
 
@@ -239,44 +289,125 @@
     <section>
       <title>varnishstat</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>varnishhist</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>varnishtop</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
   </section>
 
   <section>
     <title>The test framework</title>
 
+    <para>Lorem ipsum dolor sit amet</para>
   </section>
 
   <section>
     <title>Plugins</title>
 
-    <para>The <filename>trunk/varnish-tools</filename> directory in
+    <para>The <filename>trunk/varnish-tools/</filename> directory in
     the Varnish repository contains Varnish plugins for several
     popular system monitoring and administration frameworks.</para>
 
     <section>
       <title>Munin</title>
 
+      <para>Munin, named for one of the two ravens that in Norse
+      tradition sit on the shoulders of Odin, father of the gods, is a
+      monitoring and graphing tool built on top of Tobi Oetiker's
+      RRDtool and maintained largely by Linpro.</para>
+
+      <para>The Varnish Munin plugin is written in Perl and resides in
+      <filename>trunk/varnish-tools/munin/</filename>.  It can report
+      on any statistic (called <emphasis>aspects</emphasis>) stored in
+      the shared memory log, and can easily be extended to also report
+      values computed from these statistics (<emphasis>derived
+      aspects</emphasis>).</para>
+
+      <para>When run, the plugin first invokes
+      <command>varnishstat</command>.  Using the first column as keys,
+      it registers each available statistic in the
+      <varname>%ASPECTS</varname> hash, and stores their values in the
+      <varname>%varnishstat</varname> hash.  It then verifies that the
+      requested aspect matches one of the items in
+      <varname>%ASPECTS</varname>, i.e. one of the statistics reported
+      by <command>varnishstat</command> or a predefined derived
+      aspect.  Finally, it either looks up or computes the requested
+      value, and prints it to <varname>stdout</varname> in the format
+      expected by Munin.</para>
+
+      <para>Aspects are of one of three types:
+      <literal>count</literal> (a monotonically increasing counter),
+      <literal>gauge</literal> (an instantaneous measurement) and
+      <literal>percent</literal> (a fraction expressed as a
+      percentage).  The first two are used for automatically created
+      aspects (i.e. everything <command>varnishstat</command>
+      reports), while the third is used only for predefined derived
+      aspects.</para>
+
+      <para>A <literal>count</literal> or <literal>gauge</literal>
+      aspect has a <literal>value</literal> which is either a key in
+      <varname>%varnishstat</varname> or a reference to an array
+      representing an expression; the first element of the array is an
+      arithmetic operator, and subsequent elements are the terms
+      (which can themselves be references to expression
+      arrays).</para>
+
+      <para>A <literal>percent</literal> aspect has one or more
+      values; if it has more than one, Munin will stack them.  Each
+      value has a <literal>numerator</literal> and a
+      <literal>denominator</literal>, each of which is, as above,
+      either a key in <varname>%varnishstat</varname> or an
+      expression.</para>
+
+      <para>When adding or modifying derived aspects, care should be
+      taken not to create unnecessary inconsistencies between this
+      plugin and the Nagios plugin described in the next
+      section.</para>
     </section>
 
     <section>
       <title>Nagios</title>
 
+      <para>Nagios is a web-based host and network monitoring tool.
+      The major difference between Nagios and Munin is that while
+      Munin records statistics and creates graphs, Nagios primarily
+      wants to know whether a particular part of the system has failed
+      or is about to fail.</para>
+
+      <para>The Varnish Nagios plugin is written in C and resides in
+      <filename>trunk/varnish-tools/nagios/</filename>.  It can report
+      any statistic stored in the shared memory log.  It can also
+      fairly easily be extended to report computed statistics.</para>
+
+      <!-- XXX more -->
+
+      <para>When adding or modifying parameters, care should be taken
+      not to create unnecessary inconsistencies between this plugin
+      and the Munin plugin described in the previous section.</para>
     </section>
 
     <section>
       <title>Webmin</title>
 
+      <para>Webmin is a web-based system configuration and
+      administration tool for Unix-like systems.</para>
+
+      <para>The Varnish Webmin plugin is written in Perl and resides
+      in <filename>trunk/varnish-tools/webmin/</filename>.  It can
+      perform all of the functions that are available through the
+      management process's command-line interface.</para>
+
+      <!-- XXX more -->
     </section>
   </section>
 
@@ -286,16 +417,19 @@
     <section>
       <title>varnishadm</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>varnishreplay</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
 
     <section>
       <title>fetcher</title>
 
+      <para>Lorem ipsum dolor sit amet</para>
     </section>
   </section>
 </article>
