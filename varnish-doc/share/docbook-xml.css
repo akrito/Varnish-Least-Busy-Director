@@ -230,7 +230,19 @@ xref:after {
 /*
  * Misc
  */
+command {
+	font-family: monospace;
+}
+
 filename {
+	font-family: monospace;
+}
+
+literal {
+	font-family: monospace;
+}
+
+varname {
 	font-family: monospace;
 }
 
