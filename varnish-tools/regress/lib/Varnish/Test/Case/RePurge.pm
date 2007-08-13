@@ -40,10 +40,10 @@ our $DESCR = "Tests the VCL purge() function by warming up the cache," .
 
 our $VCL = <<EOVCL;
 sub vcl_recv {
-	if (req.request == "REPURGE") {
-		purge(req.url);
-		error 404 "Purged";
-	}
+    if (req.request == "REPURGE") {
+	purge_url(req.url);
+	error 404 "Purged";
+    }
 }
 EOVCL
 
