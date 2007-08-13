@@ -134,10 +134,12 @@ sub run($;@) {
     foreach my $method (@tests) {
 	eval {
 	    $self->{'count'} += 1;
+	    $self->log(sprintf("%d: TRY: %s",
+			       $self->{'count'}, $method));
 	    my $result = $self->$method(@args);
 	    $self->{'successful'} += 1;
 	    $self->log(sprintf("%d: PASS: %s: %s\n",
-			       $self->{'count'}, $method, $result || ''));
+			       $self->{'count'}, $method, $result || 'OK'));
 	};
 	if ($@) {
 	    $self->{'failed'} += 1;
@@ -189,7 +191,7 @@ sub ev_client_response($$$) {
 sub ev_client_timeout($$) {
     my ($self, $client) = @_;
 
-    $client->shutdown(2);
+    $client->shutdown();
     return $client;
 }
 
@@ -221,6 +223,13 @@ sub ev_server_request($$$$) {
     $connection->send_response($response);
 }
 
+sub ev_server_timeout($$) {
+    my ($self, $srvconn) = @_;
+
+    $srvconn->shutdown();
+    return $srvconn;
+}
+
 #
 # Client utilities
 #
@@ -241,15 +250,21 @@ sub request($$$$;$$) {
 	    unless ($req->header('Content-Length'));
 	$req->content($content);
     }
-    $client->send_request($req, 2);
+    $client->send_request($req, 4);
     my ($ev, $resp) =
-	$self->run_loop('ev_client_response', 'ev_client_timeout');
-    die "Client time-out before receiving a (complete) response\n"
+	$self->run_loop('ev_server_timeout',
+			'ev_client_timeout',
+			'ev_client_response');
+    die "Server timed out before receiving a complete request\n"
+	if $ev eq 'ev_server_timeout';
+    die "Client timed out before receiving a complete response\n"
 	if $ev eq 'ev_client_timeout';
     die "Internal error\n"
 	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
     die "No X-Varnish header\n"
-	unless $resp->header('X-Varnish');
+	unless (!$resp->header('X-Varnish'));
+    die "Invalid X-Varnish header\n"
+	unless ($resp->header('X-Varnish') =~ m/^\d+(?: \d+)?$/);
     $resp->request($req);
     return $self->{'cached_response'} = $resp;
 }

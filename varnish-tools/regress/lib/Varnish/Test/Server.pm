@@ -79,6 +79,12 @@ sub log($$;$) {
     $self->{'engine'}->log($self, 'SRV: ' . ($extra_prefix || ''), $str);
 }
 
+sub logf($$;@) {
+    my ($self, $fmt, @args) = @_;
+
+    $self->{'engine'}->log($self, 'SRV: ', sprintf($fmt, @args));
+}
+
 sub shutdown($) {
     my ($self) = @_;
 
@@ -104,19 +110,21 @@ sub got_request($$) {
     my ($self, $connection, $request) = @_;
 
     $self->{'requests'} += 1;
-    $self->log($request->as_string, 'Rx| ');
+    $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
     $self->{'engine'}->ev_server_request($self, $connection, $request);
 }
 
 package Varnish::Test::Server::Connection;
 
 use strict;
+use HTTP::Status;
 
 sub new($$) {
     my ($this, $server, $fh) = @_;
     my $class = ref($this) || $this;
 
     my $self = bless({ 'server' => $server,
+		       'engine' => $server->{'engine'},
 		       'fh' => $fh,
 		       'mux' => $server->{'mux'},
 		       'data' => '' }, $class);
@@ -127,26 +135,29 @@ sub new($$) {
 sub send_response($$) {
     my ($self, $response) = @_;
 
+    $response->message(status_message($response->code()))
+	unless $response->message();
     $self->{'mux'}->write($self->{'fh'}, $response->as_string);
     $self->{'server'}->{'responses'} += 1;
-    $self->{'server'}->log($response->as_string, 'Tx| ');
+    $self->{'server'}->logf("%s %s", $response->code(), $response->message());
 }
 
 sub shutdown($) {
     my ($self) = @_;
 
-    $self->{'mux'}->shutdown($self->{'fh'}, 1);
+    $self->{'mux'}->close($self->{'fh'});
 }
 
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
+
+    $mux->set_timeout($fh, undef);
 
     # Iterate through the input buffer ($$data) and identify HTTP
     # messages, one per iteration. Break out of the loop when there
     # are no complete HTTP messages left in the buffer, and let
     # whatever data remains stay in the buffer, as we will get a new
     # chance to parse it next time we get more data ("mux_input").
-
     while ($$data =~ /\n\r?\n/) {
 	# If we find a double (CR)LF in the input data, we have at
 	# least a complete header section of a message, so look for
@@ -168,6 +179,7 @@ sub mux_input($$$$) {
 	    elsif ($data_length < $content_length) {
 		# We only received the first part of an HTTP message,
 		# so break out of loop and wait for more.
+		$mux->set_timeout($fh, 2);
 		last;
 	    }
 	    else {
@@ -196,6 +208,13 @@ sub mux_input($$$$) {
 	    $self->{'server'}->got_request($self, $request);
 	}
     }
+}
+
+sub mux_timeout($$$) {
+    my ($self, $mux, $fh) = @_;
+
+    $self->{'mux'}->set_timeout($fh, undef);
+    $self->{'engine'}->ev_server_timeout($self);
 }
 
 sub mux_eof($$$$) {

@@ -63,39 +63,50 @@ sub log($$;$) {
     $self->{'engine'}->log($self, 'CLI: ' . ($extra_prefix || ''), $str);
 }
 
+sub logf($$;@) {
+    my ($self, $fmt, @args) = @_;
+
+    $self->{'engine'}->log($self, 'CLI: ', sprintf($fmt, @args));
+}
+
 sub send_request($$;$) {
     my ($self, $request, $timeout) = @_;
 
-    my $fh = IO::Socket::INET->new('Proto'    => 'tcp',
-				   'PeerAddr' => 'localhost',
-				   'PeerPort' => '8080')
-      or die "socket(): $!\n";
-
-    $self->{'fh'} = $fh;
-    $self->{'mux'}->add($fh);
-    $self->{'mux'}->set_timeout($fh, $timeout) if defined($timeout);
-    $self->{'mux'}->set_callback_object($self, $fh);
-    $self->{'mux'}->write($fh, $request->as_string);
+    if (!defined($self->{'fh'})) {
+	my $fh = IO::Socket::INET->new('Proto'    => 'tcp',
+				       'PeerAddr' => 'localhost',
+				       'PeerPort' => '8080')
+	    or die "socket(): $!\n";
+	$self->{'fh'} = $fh;
+	$self->{'mux'}->add($fh);
+	$self->{'mux'}->set_callback_object($self, $fh);
+    }
+    $self->{'timeout'} = $timeout;
+    $self->{'mux'}->set_timeout($fh, $timeout);
+    $self->{'mux'}->write($self->{'fh'}, $request->as_string);
     $self->{'requests'} += 1;
-    $self->log($request->as_string, 'Tx| ');
+    $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
 }
 
 sub got_response($$) {
     my ($self, $response) = @_;
 
     $self->{'responses'} += 1;
-    $self->log($response->as_string, 'Rx| ');
+    $self->logf("%s %s", $response->code(), $response->message());
     $self->{'engine'}->ev_client_response($self, $response);
 }
 
 sub shutdown($) {
-    my ($self) = @_;
+    my ($self, $how) = @_;
 
-    $self->{'mux'}->shutdown($self->{'fh'}, 1);
+    $self->{'mux'}->close($self->{'fh'});
+    $self->{'fh'} = undef;
 }
 
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
+
+    $mux->set_timeout($fh, undef);
 
     # Iterate through the input buffer ($$data) and identify HTTP
     # messages, one per iteration. Break out of the loop when there
@@ -135,6 +146,7 @@ sub mux_input($$$$) {
 		# so break out of loop and wait for more.
 		$self->log("Partial body received" .
 			   " ($data_length of $content_length bytes)");
+		$mux->set_timeout($fh, $self->{'timeout'});
 		last;
 	    }
 	    else {
@@ -158,7 +170,9 @@ sub mux_input($$$$) {
 	    # out of loop and wait for EOF, in which case mux_eof will
 	    # reparse the input buffer as a HTTP message and send it
 	    # to event handling from there.
-	    $self->log('Partial response. Content-Length unknown. Expecting CLOSE as end-of-response.');
+	    $self->log("Partial response. Content-Length unknown." .
+		       " Expecting CLOSE as end-of-response.");
+	    $mux->set_timeout($fh, $self->{'timeout'});
 	    last;
 	}
     }
@@ -183,6 +197,7 @@ sub mux_eof($$$$) {
 sub mux_timeout($$$) {
     my ($self, $mux, $fh) = @_;
 
+    $self->{'mux'}->set_timeout($fh, undef);
     $self->{'engine'}->ev_client_timeout($self);
 }
 
