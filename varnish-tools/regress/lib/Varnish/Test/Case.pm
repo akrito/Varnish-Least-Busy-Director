@@ -264,10 +264,6 @@ sub request($$$$;$$) {
 	if $ev eq 'ev_client_timeout';
     die "Internal error\n"
 	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
-    die "No X-Varnish header\n"
-	unless (!$resp->header('X-Varnish'));
-    die "Invalid X-Varnish header\n"
-	unless ($resp->header('X-Varnish') =~ m/^\d+(?: \d+)?$/);
     $resp->request($req);
     return $self->{'cached_response'} = $resp;
 }
@@ -308,6 +304,18 @@ sub assert_ok($;$) {
         unless defined($resp);
 
     $self->assert_code(200, $resp);
+}
+
+sub assert_xid($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    die "No X-Varnish header\n"
+	unless (!$resp->header('X-Varnish'));
+    die "Invalid X-Varnish header\n"
+	unless ($resp->header('X-Varnish') =~ m/^\d+(?: \d+)?$/);
 }
 
 sub assert_cached($;$) {
