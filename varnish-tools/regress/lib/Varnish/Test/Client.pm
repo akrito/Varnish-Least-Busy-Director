@@ -82,7 +82,7 @@ sub send_request($$;$) {
 	$self->{'mux'}->set_callback_object($self, $fh);
     }
     $self->{'timeout'} = $timeout;
-    $self->{'mux'}->set_timeout($fh, $timeout);
+    $self->{'mux'}->set_timeout($self->{'fh'}, $timeout);
     $self->{'mux'}->write($self->{'fh'}, $request->as_string);
     $self->{'requests'} += 1;
     $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
