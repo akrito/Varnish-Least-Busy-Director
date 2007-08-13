@@ -202,6 +202,12 @@ sub stop_child($) {
     $self->send_command("stop");
 }
 
+sub set_param($$$) {
+    my ($self, $param, $value) = @_;
+
+    $self->send_command('param.set', $param, $value);
+}
+
 sub shutdown($) {
     my ($self) = @_;
 
