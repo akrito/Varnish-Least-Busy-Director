@@ -88,6 +88,9 @@ sub init($) {
 	$self->run_loop('ev_varnish_command_ok');
     }
 
+    $varnish->set_param('vcl_trace' => 'on');
+    $self->run_loop('ev_varnish_command_ok');
+
     # Start the child
     $varnish->start_child();
     $self->run_loop('ev_varnish_child_started');
