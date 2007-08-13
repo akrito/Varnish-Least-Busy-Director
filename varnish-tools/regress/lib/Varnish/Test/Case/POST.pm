@@ -68,6 +68,7 @@ sub testPassPOST($) {
     my $client = $self->new_client;
     $self->post($client, "/pass_me", [], $MAGIC_WORDS);
     $self->assert_ok();
+    $self->assert_xid();
     $self->assert_body(qr/\Q$MAGIC_WORDS\E/);
 
     return 'OK';
@@ -79,6 +80,7 @@ sub testPipePOST($) {
     my $client = $self->new_client;
     $self->post($client, "/pipe_me", [], $MAGIC_WORDS);
     $self->assert_ok();
+    $self->assert_no_xid();
     $self->assert_body(qr/\Q$MAGIC_WORDS\E/);
 
     return 'OK';
