@@ -313,9 +313,19 @@ sub assert_xid($;$) {
         unless defined($resp);
 
     die "No X-Varnish header\n"
-	unless (!$resp->header('X-Varnish'));
+	unless (defined($resp->header('X-Varnish')));
     die "Invalid X-Varnish header\n"
 	unless ($resp->header('X-Varnish') =~ m/^\d+(?: \d+)?$/);
+}
+
+sub assert_no_xid($;$) {
+    my ($self, $resp) = @_;
+
+    $resp = $self->{'cached_response'}
+        unless defined($resp);
+
+    die "X-Varnish header present where none expected\n"
+	if (defined($resp->header('X-Varnish')));
 }
 
 sub assert_cached($;$) {
