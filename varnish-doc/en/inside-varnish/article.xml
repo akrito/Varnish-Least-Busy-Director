@@ -258,6 +258,33 @@
 	requested operation.  The status code 400 indicates a
 	communications error.</para>
       </section>
+
+      <section>
+	<title>The shared memory log</title>
+
+	<!--
+The ReqEnd record in the shared memory log has the following fields:
+{{{
+ 2039158367 1158180241.888800123 1158180241.888854881 0.005646787 0.000015924 0.000038834
+ XID        Request timestamp    Complete timestamp   Idle time   proc.time   xmit time
+}}}
+
+XID is the transaction ID.  If no request was received it will be zero.
+
+Request timestamp is the time when we have received a complete request.
+
+Complete timestamp is when Varnish is done with the request.  This does *not* signify when the last byte has been transmitted to the client.  The last X kilobytes are still likely to be buffered in the kernel and on the way out.
+
+Idle time is the duration from when the connection was established or the previous request on it was completed.  In other words: the inter-request interval.
+
+Proc time is how long Varnish took to prepare the reply
+
+Xmit time is how long it took Varnish to deliver the reply.  See above about kernel buffering.
+
+Request timestamp + proc time + xmit time = Complete timestamp.
+	-->
+	<para>Lorem ipsum dolor sit amet</para>
+      </section>
     </section>
 
     <section>
