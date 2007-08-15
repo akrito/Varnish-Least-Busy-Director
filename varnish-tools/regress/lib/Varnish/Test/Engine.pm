@@ -111,12 +111,22 @@ sub run_loop($@) {
     eval { $self->{'mux'}->loop; };
     delete $self->{'in_loop'};
     delete $self->{'wait_for'};
-    die $@ if ($@);
+    if ($@) {
+	$self->log($self, 'ENG: ', 'IO::Multiplex INCONSISTENT AFTER UNCONTROLLED die().');
+	# Maybe we should just exit() here, since we cannot do much
+	# useful with an inconsistent IO::Multiplex object.
+	die $@;
+    }
 
     # Loop has now been paused due to the occurrence of an event we
-    # were waiting for. This event is always found in the front of the
-    # pending events queue at this point, so return it.
-    return @{shift @{$self->{'pending'}}} if @{$self->{'pending'}} > 0;
+    # were waiting for, or a controlled die(). The event is always
+    # found in the front of the pending events queue at this point, so
+    # return it, or die() if we find a "die event".
+    if (@{$self->{'pending'}} > 0) {
+	my ($event, @args) = @{shift @{$self->{'pending'}}};
+	die $args[0] if ($event eq 'die');
+	return ($event, @args);
+    }
 
     # Hm... we should usually not reach this point. The pending queue
     # is empty. Either someone (erroneously) requested a loop pause by
@@ -153,14 +163,26 @@ sub AUTOLOAD ($;@) {
 
     $self->log($self, 'ENG: ', sprintf('EVENT "%s"', $1));
 
-    # Check to see if the active case object defines an event handler
-    # for this event. If so, call it and bring the event arguments
-    # along. This will also replace @args, which is significant if
-    # this event will pause and return.
-    @args = $self->{'case'}->$event(@args)
-	if (defined($self->{'case'}) and $self->{'case'}->can($event));
-
-    if (@{$self->{'pending'}} > 0) {
+    eval {
+	# Check to see if the active case object defines an event
+	# handler for this event. If so, call it and bring the event
+	# arguments along. This will also replace @args, which is
+	# significant if this event will pause and return.
+	@args = $self->{'case'}->$event(@args)
+	    if (defined($self->{'case'}) and $self->{'case'}->can($event));
+    };
+    if ($@) {
+	# The event handler issued die(), which we want to control
+	# because we do not want the IO::Multiplex-loop to be subject
+	# to it. Hence, we queue it as a special event which will be
+	# recognized outside the loop and reissued there, using die().
+	# We put this die-event in the front of the queue, using
+	# "unshift", so we get it through before any other events
+	# already in the queue. Then, signal pause of loop.
+	unshift(@{$self->{'pending'}}, [ 'die', $@ ]);
+	$self->{'mux'}->endloop;
+    }
+    elsif (@{$self->{'pending'}} > 0) {
 	# Pending event queue is NOT empty, meaning this is an event
 	# arriving after a pausing (wait_for) event, but before the
 	# pause is in effect. We queue this event unconditionally
