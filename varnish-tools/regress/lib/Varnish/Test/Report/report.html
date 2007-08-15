@@ -11,15 +11,15 @@ td, th { border: thin solid black; padding: 3pt; text-align: left; }
 thead, tfoot { background-color: #eeeeff; }
 tr.pass { background-color: #eeffee; }
 tr.fail { background-color: #ffeeee; }
-.name { width: 15%; }
+.name { width: 10%; }
 .count { width: 5%; }
 .pass { width: 5%; }
 .fail { width: 5%; }
-.time { width: 10%; }
-.descr { width: 60%; }
+.time { width: 5%; text-align: right; }
+.descr { width: 70%; }
     </style>
   </head>
-<!-- USE us = format('%8.6f') -->
+<!-- USE ms = format('%5.3f') -->
   <body>
     <h1 class="title">Varnish test report</h1>
     <table>
@@ -43,7 +43,7 @@ tr.fail { background-color: #ffeeee; }
 	<td class="count"><!-- case.count --></td>
 	<td class="pass"><!-- case.pass --></td>
 	<td class="fail"><!-- case.fail --></td>
-	<td class="time"><!-- us(case.time) --> s</td>
+	<td class="time"><!-- ms(case.time) --> s</td>
 	<td class="descr"><!-- case.descr --></td>
       </tr>
 <!-- END -->
@@ -53,7 +53,7 @@ tr.fail { background-color: #ffeeee; }
 	  <td class="count"><!-- count --></td>
 	  <td class="pass"><!-- pass --></td>
 	  <td class="fail"><!-- fail --></td>
-	  <td class="time"><!-- us(time) --> s</td>
+	  <td class="time"><!-- ms(time) --> s</td>
 	  <td class="descr">&nbsp;</td>
 	</tr>
       </tfoot>
