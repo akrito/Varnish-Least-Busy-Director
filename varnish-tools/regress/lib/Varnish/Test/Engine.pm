@@ -66,6 +66,7 @@ sub new($$;%) {
     my $self = bless({ 'mux' => IO::Multiplex->new,
 		       'controller' => $controller,
 		       'config' => \%config,
+		       'clients' => [],
 		       'pending' => [] }, $class);
 
     $self->{'server'} = Varnish::Test::Server->new($self);

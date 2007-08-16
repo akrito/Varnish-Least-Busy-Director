@@ -45,14 +45,19 @@ use strict;
 
 use IO::Socket::INET;
 
+our $id_seq = 1;
+
 sub new($$) {
     my ($this, $engine, $attrs) = @_;
     my $class = ref($this) || $this;
 
     my $self = bless({ 'engine' => $engine,
 		       'mux' => $engine->{'mux'},
+		       'id' => $id_seq++,
 		       'requests' => 0,
 		       'responses' => 0 }, $class);
+
+    push(@{$self->{'engine'}->{'clients'}}, $self);
 
     return $self;
 }
@@ -60,13 +65,13 @@ sub new($$) {
 sub log($$;$) {
     my ($self, $str, $extra_prefix) = @_;
 
-    $self->{'engine'}->log($self, 'CLI: ' . ($extra_prefix || ''), $str);
+    $self->{'engine'}->log($self, sprintf('CLI[%d]: ', $self->{'id'}) . ($extra_prefix || ''), $str);
 }
 
 sub logf($$;@) {
     my ($self, $fmt, @args) = @_;
 
-    $self->{'engine'}->log($self, 'CLI: ', sprintf($fmt, @args));
+    $self->{'engine'}->log($self, sprintf('CLI[%d]: ', $self->{'id'}), sprintf($fmt, @args));
 }
 
 sub send_request($$;$) {
@@ -97,10 +102,21 @@ sub got_response($$) {
 }
 
 sub shutdown($) {
-    my ($self, $how) = @_;
+    my ($self) = @_;
 
-    $self->{'mux'}->close($self->{'fh'});
-    $self->{'fh'} = undef;
+    if (defined($self->{'fh'})) {
+	my $inbuffer = $self->{'mux'}->inbuffer($self->{'fh'});
+
+	if ($inbuffer ne '') {
+	    use Data::Dumper;
+
+	    $self->log('Discarding: ' . Dumper(\$inbuffer));
+	    $self->{'mux'}->inbuffer($self->{'fh'}, '');
+	}
+
+	$self->{'mux'}->close($self->{'fh'});
+	$self->{'fh'} = undef;
+    }
 }
 
 sub mux_input($$$$) {
@@ -204,7 +220,7 @@ sub mux_timeout($$$) {
 sub mux_close($$) {
     my ($self, $mux, $fh) = @_;
 
-    delete $self->{'fh'};
+    $self->{'fh'} = undef;
 }
 
 1;

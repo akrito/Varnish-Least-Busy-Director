@@ -145,6 +145,15 @@ sub send_response($$) {
 sub shutdown($) {
     my ($self) = @_;
 
+    my $inbuffer = $self->{'mux'}->inbuffer($self->{'fh'});
+
+    if ($inbuffer ne '') {
+	use Data::Dumper;
+
+	$self->{'server'}->log('Junk or incomplete request. Discarding: ' . Dumper(\$inbuffer));
+	$self->{'mux'}->inbuffer($self->{'fh'}, '');
+    }
+
     $self->{'mux'}->close($self->{'fh'});
 }
 
@@ -224,8 +233,12 @@ sub mux_eof($$$$) {
     # of request, so if there is anything left in input buffer, it
     # must be incomplete because "mux_input" left it there.
 
-    die "Junk or incomplete request\n"
-	unless $$data eq '';
+    if ($$data ne '') {
+	use Data::Dumper;
+
+	$self->{'server'}->log('Junk or incomplete request. Discarding: ' . Dumper($data));
+	$$data = '';
+    }
 }
 
 1;

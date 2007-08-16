@@ -149,6 +149,11 @@ sub run($;@) {
 	    $self->log(sprintf("%d: FAIL: %s: %s",
 			       $self->{'count'}, $method, $@));
 	}
+	# Make sure all clients have closed their connections.
+	foreach my $client (@{$self->{'engine'}->{'clients'}}) {
+	    $client->shutdown;
+	}
+	@{$self->{'engine'}->{'clients'}} = ();
     }
     $self->{'stop'} = [gettimeofday()];
 }
