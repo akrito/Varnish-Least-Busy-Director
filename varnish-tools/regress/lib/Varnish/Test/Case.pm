@@ -83,7 +83,11 @@ sub init($) {
 	my $vcl = $varnish->backend_block('main') . ${ref($self)."::VCL"};
 
 	$varnish->send_vcl(ref($self), $vcl);
-	$self->run_loop('ev_varnish_command_ok');
+	my ($ev, $resp) = $self->run_loop('ev_varnish_command_ok', 'ev_varnish_command_unknown');
+	if ($ev eq 'ev_varnish_command_unknown') {
+	    $self->{'failed'} += 1;
+	    die "Unable to load VCL.\n"
+	}
 	$varnish->use_vcl(ref($self));
 	$self->run_loop('ev_varnish_command_ok');
     }
@@ -182,7 +186,9 @@ sub results($) {
 	'count' => $self->{'count'},
 	'pass' => $self->{'successful'},
 	'fail' => $self->{'failed'},
-	'time' => tv_interval($self->{'start'}, $self->{'stop'}),
+	'time' => ((defined($self->{'start'}) and defined($self->{'stop'}))
+		   ? tv_interval($self->{'start'}, $self->{'stop'})
+		   : 0),
     };
 }
 
