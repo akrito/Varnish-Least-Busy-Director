@@ -88,7 +88,7 @@ sub send_request($$;$) {
     }
     $self->{'timeout'} = $timeout;
     $self->{'mux'}->set_timeout($self->{'fh'}, $timeout);
-    $self->{'mux'}->write($self->{'fh'}, $request->as_string);
+    $self->{'mux'}->write($self->{'fh'}, $request->as_string("\r\n"));
     $self->{'requests'} += 1;
     $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
 }

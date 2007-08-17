@@ -137,7 +137,7 @@ sub send_response($$) {
 
     $response->message(status_message($response->code()))
 	unless $response->message();
-    $self->{'mux'}->write($self->{'fh'}, $response->as_string);
+    $self->{'mux'}->write($self->{'fh'}, $response->as_string("\r\n"));
     $self->{'server'}->{'responses'} += 1;
     $self->{'server'}->logf("%s %s", $response->code(), $response->message());
 }
