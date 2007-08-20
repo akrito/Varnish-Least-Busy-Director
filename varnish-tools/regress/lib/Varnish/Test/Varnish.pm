@@ -113,44 +113,44 @@ sub new($$;$) {
 	exec('varnishd', @opts);
 	exit(1);
     }
-    else {
-	# Parent
-	$self->log('PID: ' . $pid);
 
-	close STDIN_READ;
-	close STDOUT_WRITE;
-	close STDERR_WRITE;
+    # Parent
+    $self->log('PID: ' . $pid);
 
-	$self->{'pid'} = $pid;
-	$self->{'stdin'} = \*STDIN_WRITE;
-	$self->{'stdout'} = \*STDOUT_READ;
-	$self->{'stderr'} = \*STDERR_READ;
+    close STDIN_READ;
+    close STDOUT_WRITE;
+    close STDERR_WRITE;
 
-	# Register the Varnish I/O-channels with the IO::Multiplex
-	# loop object.
+    $self->{'pid'} = $pid;
+    $self->{'stdin'} = \*STDIN_WRITE;
+    $self->{'stdout'} = \*STDOUT_READ;
+    $self->{'stderr'} = \*STDERR_READ;
 
-	$self->{'mux'}->add($self->{'stdin'});
-	$self->{'mux'}->set_callback_object($self, $self->{'stdin'});
-	$self->{'mux'}->add($self->{'stdout'});
-	$self->{'mux'}->set_callback_object($self, $self->{'stdout'});
-	$self->{'mux'}->add($self->{'stderr'});
-	$self->{'mux'}->set_callback_object($self, $self->{'stderr'});
+    # Register the Varnish I/O-channels with the IO::Multiplex
+    # loop object.
 
-	# Wait up to 0.5 seconds for Varnish to accept our connection
-	# on the management port
-	for (my $i = 0; $i < 5; ++$i) {
-	    last if $self->{'socket'} = IO::Socket::INET->
-		new(Type => SOCK_STREAM,
-		    PeerAddr => $engine->{'config'}->{'telnet_address'});
-	    select(undef, undef, undef, 0.1);
-	}
-	if (!defined($self->{'socket'})) {
-	    kill(15, delete $self->{'pid'});
-	    die "Varnish did not start\n";
-	}
-	$self->{'mux'}->add($self->{'socket'});
-	$self->{'mux'}->set_callback_object($self, $self->{'socket'});
+    $self->{'mux'}->add($self->{'stdin'});
+    $self->{'mux'}->set_callback_object($self, $self->{'stdin'});
+    $self->{'mux'}->add($self->{'stdout'});
+    $self->{'mux'}->set_callback_object($self, $self->{'stdout'});
+    $self->{'mux'}->add($self->{'stderr'});
+    $self->{'mux'}->set_callback_object($self, $self->{'stderr'});
+
+    # Wait up to 0.5 seconds for Varnish to accept our connection
+    # on the management port
+    for (my $i = 0; $i < 5; ++$i) {
+	last if $self->{'socket'} = IO::Socket::INET->
+	    new(Type => SOCK_STREAM,
+		PeerAddr => $engine->{'config'}->{'telnet_address'});
+	select(undef, undef, undef, 0.1);
     }
+    if (!defined($self->{'socket'})) {
+	kill(15, delete $self->{'pid'});
+	die "Varnish did not start\n";
+    }
+    $self->{'mux'}->add($self->{'socket'});
+    $self->{'mux'}->set_callback_object($self, $self->{'socket'});
+    $self->{'state'} = 'stopped';
 
     return $self;
 }
@@ -191,6 +191,8 @@ sub send_command($@) {
 	$self->{'engine'}->run_loop('ev_varnish_result',
 				    'ev_varnish_timeout');
     delete $self->{'pending'};
+    $self->log("result code $code")
+	if ($ev eq 'ev_varnish_result');
     return ($code, $text);
 }
 
@@ -213,7 +215,22 @@ sub start_child($) {
     die "already started\n"
 	if $self->{'state'} eq "started";
 
-    return $self->send_command("start");
+    $self->{'state'} = 'starting';
+    my ($code, $text) = $self->send_command("start");
+    return ($code, $text)
+	unless ($code == 200);
+    for (my $n = 0; $n < 10; ++$n) {
+	my ($code, $text) = $self->send_command('status');
+	return ($code, $text)
+	    unless ($code == 200);
+	if ($text =~ /state running/) {
+	    $self->{'state'} = 'started';
+	    return ($code, $text);
+	}
+	select(undef, undef, undef, 0.5);
+    }
+    $self->shutdown();
+    return (500, 'unable to start child');
 }
 
 sub stop_child($) {
@@ -223,7 +240,20 @@ sub stop_child($) {
     die "already stopped\n"
 	if $self->{'state'} eq 'stopped';
 
-    return $self->send_command("stop");
+    $self->{'state'} eq 'stopping';
+    my ($code, $text) = $self->send_command("stop");
+    for (my $n = 0; $n < 10; ++$n) {
+	my ($code, $text) = $self->send_command('status');
+	return ($code, $text)
+	    unless ($code == 200);
+	if ($text =~ /state stopped/) {
+	    $self->{'state'} = 'stopped';
+	    return ($code, $text);
+	}
+	select(undef, undef, undef, 0.5);
+    }
+    $self->shutdown();
+    return (500, 'unable to stop child');
 }
 
 sub set_param($$$) {
@@ -273,22 +303,22 @@ sub mux_input($$$$) {
 	    return;
 	}
 	# extract the response text (if any), then remove from $$data
-	my $text = substr($$data, length($line), $len);
-	substr($$data, 0, length($line) + $len + 1, '');
-
-	$self->{'engine'}->ev_varnish_result($code, $text);
+	$$data =~ s/^\Q$line\E\n(.{$len})\n//
+	    or die "oops\n";
+	$self->{'engine'}->ev_varnish_result($code, $1);
     } else {
-	if ($$data =~ /^rolling\(2\)\.\.\./m) {
-	    $self->{'state'} = 'stopped';
-	    $self->{'engine'}->ev_varnish_started;
-	}
-	if ($$data =~ /Child starts/) {
-	    $self->{'state'} = 'started';
-	    $self->{'engine'}->ev_varnish_child_started;
-	}
-	if ($$data =~ /Child dies/) {
-	    $self->{'state'} = 'stopped';
-	    $self->{'engine'}->ev_varnish_child_stopped;
+	if ($$data =~ /Child died pid=(\d+) status=0x([0-9A-Fa-f]+)/) {
+	    my ($pid, $status) = ($1, hex($2));
+	    if ($pid != $self->{'pid'}) {
+		# shouldn't happen, but sometimes it does
+		$self->log("stray child $pid died with status $status");
+	    } elsif ($self->{'state'} == 'stopping' ||
+		$self->{'state'} == 'stopped') {
+		# ignore
+	    } else {
+		$self->{'state'} = 'stopped';
+		die "child died unexpectedly with status $status\n";
+	    }
 	}
 	# XXX there might be more!
 	$$data = '';

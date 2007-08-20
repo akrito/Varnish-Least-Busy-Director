@@ -103,7 +103,6 @@ sub init($) {
 	$self->{'failed'} += 1;
 	die "Unable to start child\n";
     }
-    $self->run_loop('ev_varnish_child_started');
 }
 
 sub fini($) {
@@ -113,13 +112,11 @@ sub fini($) {
 
     # Stop the worker process
     $varnish->stop_child();
-    $self->run_loop('ev_varnish_child_stopped');
 
     # Revert to initial VCL script
     no strict 'refs';
     if (${ref($self)."::VCL"}) {
 	$varnish->use_vcl('boot');
-	$self->run_loop('ev_varnish_result');
     }
 
     delete $self->{'engine'}->{'case'};
