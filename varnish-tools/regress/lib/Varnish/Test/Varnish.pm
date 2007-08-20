@@ -47,6 +47,7 @@ package Varnish::Test::Varnish;
 
 use strict;
 
+use IO::Socket::INET;
 use Socket;
 
 sub new($$;$) {
@@ -98,7 +99,8 @@ sub new($$;$) {
 		    '-s', $engine->{'config'}->{'storage_spec'},
 		    '-n', $engine->{'config'}->{'varnish_name'},
 		    '-a', $engine->{'config'}->{'varnish_address'},
-		    '-b', $engine->{'config'}->{'server_address'});
+		    '-b', $engine->{'config'}->{'server_address'},
+		    '-T', $engine->{'config'}->{'telnet_address'});
 
 	print STDERR sprintf("Starting Varnish with options: %s\n", join(' ', @opts));
 
@@ -133,6 +135,21 @@ sub new($$;$) {
 	$self->{'mux'}->set_callback_object($self, $self->{'stdout'});
 	$self->{'mux'}->add($self->{'stderr'});
 	$self->{'mux'}->set_callback_object($self, $self->{'stderr'});
+
+	# Wait up to 0.5 seconds for Varnish to accept our connection
+	# on the management port
+	for (my $i = 0; $i < 5; ++$i) {
+	    last if $self->{'socket'} = IO::Socket::INET->
+		new(Type => SOCK_STREAM,
+		    PeerAddr => $engine->{'config'}->{'telnet_address'});
+	    select(undef, undef, undef, 0.1);
+	}
+	if (!defined($self->{'socket'})) {
+	    kill(15, delete $self->{'pid'});
+	    die "Varnish did not start\n";
+	}
+	$self->{'mux'}->add($self->{'socket'});
+	$self->{'mux'}->set_callback_object($self, $self->{'socket'});
     }
 
     return $self;
@@ -166,7 +183,8 @@ sub send_command($@) {
 	}
     }
     my $command = join(' ', @args);
-    $self->{'mux'}->write($self->{'stdin'}, $command . "\n");
+    $self->{'mux'}->write($self->{'socket'}, $command . "\n");
+    $self->{'mux'}->set_timeout($self->{'socket'}, 2);
     $self->{'pending'} = $command;
 }
 
@@ -211,7 +229,16 @@ sub set_param($$$) {
 sub shutdown($) {
     my ($self) = @_;
 
-    $self->{'mux'}->shutdown(delete $self->{'stdin'}, 1);
+    $self->{'mux'}->close(delete $self->{'stdin'})
+	if $self->{'stdin'};
+    $self->{'mux'}->close(delete $self->{'stdout'})
+	if $self->{'stdout'};
+    $self->{'mux'}->close(delete $self->{'stderr'})
+	if $self->{'stderr'};
+    $self->{'mux'}->close(delete $self->{'socket'})
+	if $self->{'socket'};
+    kill(15, delete $self->{'pid'})
+	if $self->{'pid'};
 }
 
 sub kill($;$) {
@@ -229,26 +256,49 @@ sub mux_input($$$$) {
 
     $self->log($$data);
 
-    if ($$data =~ /^rolling\(2\)\.\.\./m) {
-	$self->{'state'} = 'stopped';
-	$self->{'engine'}->ev_varnish_started;
-    }
-    if ($$data =~ /Child starts/) {
-	$self->{'state'} = 'started';
-	$self->{'engine'}->ev_varnish_child_started;
-    }
-    if ($$data =~ /Child dies/) {
-	$self->{'state'} = 'stopped';
-	$self->{'engine'}->ev_varnish_child_stopped;
-    }
+    $self->{'mux'}->set_timeout($fh, undef);
+    if ($fh == $self->{'socket'}) {
+	die "syntax error\n"
+	    unless ($$data =~ m/^([1-5][0-9][0-9]) (\d+) *$/m);
+	my ($line, $code, $len) = ($&, $1, $2);
+	if (length($$data) < length($line) + $len) {
+	    # we don't have the full response yet.
+	    $self->{'mux'}->set_timeout($fh, 2);
+	    return;
+	}
+	# extract the response text (if any), then remove from $$data
+	my $text = substr($$data, length($line), $len);
+	substr($$data, 0, length($line) + $len + 1, '');
 
-    $self->{'engine'}->ev_varnish_command_ok(delete $self->{'pending'})
-	if ($$data =~ /^200 \d+/m and $self->{'pending'});
+	$self->{'engine'}->ev_varnish_command_ok(delete $self->{'pending'})
+	    if ($code eq 200 and $self->{'pending'});
 
-    $self->{'engine'}->ev_varnish_command_unknown(delete $self->{'pending'})
-	if ($$data =~ /^300 \d+/m and $self->{'pending'});
+	$self->{'engine'}->ev_varnish_command_unknown(delete $self->{'pending'})
+	    if ($code eq 300 and $self->{'pending'});
+    } else {
+	if ($$data =~ /^rolling\(2\)\.\.\./m) {
+	    $self->{'state'} = 'stopped';
+	    $self->{'engine'}->ev_varnish_started;
+	}
+	if ($$data =~ /Child starts/) {
+	    $self->{'state'} = 'started';
+	    $self->{'engine'}->ev_varnish_child_started;
+	}
+	if ($$data =~ /Child dies/) {
+	    $self->{'state'} = 'stopped';
+	    $self->{'engine'}->ev_varnish_child_stopped;
+	}
+	# XXX there might be more!
+	$$data = '';
+    }
+}
 
-    $$data = '';
+sub mux_timeout($$$) {
+    my ($self, $mux, $fh) = @_;
+
+    $self->{'mux'}->set_timeout($fh, undef);
+    $self->shutdown();
+    $self->{'engine'}->ev_varnish_timeout($self);
 }
 
 1;

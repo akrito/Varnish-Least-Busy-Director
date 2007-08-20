@@ -57,8 +57,9 @@ sub new($$;%) {
     my ($this, $controller, %config) =  @_;
     my $class = ref($this) || $this;
 
-    %config = ('server_address' => 'localhost:8081',
-	       'varnish_address' => 'localhost:8080',
+    %config = ('varnish_address' => 'localhost:8080',
+	       'server_address' => 'localhost:8081',
+	       'telnet_address' => 'localhost:8082',
 	       'varnish_name' => 'regress',
 	       'storage_spec' => 'file,regress.bin,512k',
 	       %config);
