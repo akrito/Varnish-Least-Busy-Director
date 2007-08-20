@@ -183,21 +183,27 @@ sub send_command($@) {
 	}
     }
     my $command = join(' ', @args);
+    $self->log("sending command: $command");
     $self->{'mux'}->write($self->{'socket'}, $command . "\n");
     $self->{'mux'}->set_timeout($self->{'socket'}, 2);
     $self->{'pending'} = $command;
+    my ($ev, $code, $text) =
+	$self->{'engine'}->run_loop('ev_varnish_result',
+				    'ev_varnish_timeout');
+    delete $self->{'pending'};
+    return ($code, $text);
 }
 
 sub send_vcl($$$) {
     my ($self, $config, $vcl) = @_;
 
-    $self->send_command('vcl.inline', $config, $vcl);
+    return $self->send_command('vcl.inline', $config, $vcl);
 }
 
 sub use_vcl($$) {
     my ($self, $config) = @_;
 
-    $self->send_command('vcl.use', $config);
+    return $self->send_command('vcl.use', $config);
 }
 
 sub start_child($) {
@@ -207,7 +213,7 @@ sub start_child($) {
     die "already started\n"
 	if $self->{'state'} eq "started";
 
-    $self->send_command("start");
+    return $self->send_command("start");
 }
 
 sub stop_child($) {
@@ -217,13 +223,13 @@ sub stop_child($) {
     die "already stopped\n"
 	if $self->{'state'} eq 'stopped';
 
-    $self->send_command("stop");
+    return $self->send_command("stop");
 }
 
 sub set_param($$$) {
     my ($self, $param, $value) = @_;
 
-    $self->send_command('param.set', $param, $value);
+    return $self->send_command('param.set', $param, $value);
 }
 
 sub shutdown($) {
@@ -270,11 +276,7 @@ sub mux_input($$$$) {
 	my $text = substr($$data, length($line), $len);
 	substr($$data, 0, length($line) + $len + 1, '');
 
-	$self->{'engine'}->ev_varnish_command_ok(delete $self->{'pending'})
-	    if ($code eq 200 and $self->{'pending'});
-
-	$self->{'engine'}->ev_varnish_command_unknown(delete $self->{'pending'})
-	    if ($code eq 300 and $self->{'pending'});
+	$self->{'engine'}->ev_varnish_result($code, $text);
     } else {
 	if ($$data =~ /^rolling\(2\)\.\.\./m) {
 	    $self->{'state'} = 'stopped';

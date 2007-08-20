@@ -72,6 +72,7 @@ sub log($$) {
 
 sub init($) {
     my ($self) = @_;
+    my ($code, $text);
 
     $self->{'engine'}->{'case'} = $self;
 
@@ -82,21 +83,26 @@ sub init($) {
     if (${ref($self)."::VCL"}) {
 	my $vcl = $varnish->backend_block('main') . ${ref($self)."::VCL"};
 
-	$varnish->send_vcl(ref($self), $vcl);
-	my ($ev, $resp) = $self->run_loop('ev_varnish_command_ok', 'ev_varnish_command_unknown');
-	if ($ev eq 'ev_varnish_command_unknown') {
+	($code, $text) = $varnish->send_vcl(ref($self), $vcl);
+	if ($code != 200) {
 	    $self->{'failed'} += 1;
-	    die "Unable to load VCL.\n"
+	    die "Unable to load VCL\n";
 	}
-	$varnish->use_vcl(ref($self));
-	$self->run_loop('ev_varnish_command_ok');
+	($code, $text) = $varnish->use_vcl(ref($self));
+	if ($code != 200) {
+	    $self->{'failed'} += 1;
+	    die "Unable to load VCL\n";
+	}
     }
 
     $varnish->set_param('vcl_trace' => 'on');
-    $self->run_loop('ev_varnish_command_ok');
 
     # Start the child
-    $varnish->start_child();
+    ($code, $text) = $varnish->start_child();
+    if ($code != 200) {
+	$self->{'failed'} += 1;
+	die "Unable to start child\n";
+    }
     $self->run_loop('ev_varnish_child_started');
 }
 
@@ -107,16 +113,13 @@ sub fini($) {
 
     # Stop the worker process
     $varnish->stop_child();
-    # Wait for both events, the order is unpredictable, so wait for
-    # any of them both times.
-    $self->run_loop('ev_varnish_child_stopped', 'ev_varnish_command_ok');
-    $self->run_loop('ev_varnish_child_stopped', 'ev_varnish_command_ok');
+    $self->run_loop('ev_varnish_child_stopped');
 
     # Revert to initial VCL script
     no strict 'refs';
     if (${ref($self)."::VCL"}) {
 	$varnish->use_vcl('boot');
-	$self->run_loop('ev_varnish_command_ok', 'ev_varnish_command_unknown');
+	$self->run_loop('ev_varnish_result');
     }
 
     delete $self->{'engine'}->{'case'};
