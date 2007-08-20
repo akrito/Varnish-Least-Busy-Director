@@ -136,13 +136,13 @@ sub new($$;$) {
     $self->{'mux'}->add($self->{'stderr'});
     $self->{'mux'}->set_callback_object($self, $self->{'stderr'});
 
-    # Wait up to 0.5 seconds for Varnish to accept our connection
+    # Wait up to 5 seconds for Varnish to accept our connection
     # on the management port
-    for (my $i = 0; $i < 5; ++$i) {
+    for (my $i = 0; $i < 10; ++$i) {
 	last if $self->{'socket'} = IO::Socket::INET->
 	    new(Type => SOCK_STREAM,
 		PeerAddr => $engine->{'config'}->{'telnet_address'});
-	select(undef, undef, undef, 0.1);
+	select(undef, undef, undef, 0.5);
     }
     if (!defined($self->{'socket'})) {
 	kill(15, delete $self->{'pid'});
