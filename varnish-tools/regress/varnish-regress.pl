@@ -62,9 +62,15 @@ MAIN:{
 	or usage();
 
     my $controller = new Varnish::Test;
+    my @all_cases = $controller->cases();
+
+    if (@ARGV == 1 && $ARGV[0] eq 'list') {
+	print join(' ', @all_cases), "\n";
+	exit 0;
+    }
 
     if (!@ARGV) {
-	@ARGV = $controller->cases();
+	@ARGV = @all_cases;
     } else {
 	map { s/^(\d+)$/sprintf('Ticket%03d', $1)/e } @ARGV;
     }
