@@ -240,7 +240,7 @@ sub stop_child($) {
     die "already stopped\n"
 	if $self->{'state'} eq 'stopped';
 
-    $self->{'state'} eq 'stopping';
+    $self->{'state'} = 'stopping';
     my ($code, $text) = $self->send_command("stop");
     for (my $n = 0; $n < 10; ++$n) {
 	my ($code, $text) = $self->send_command('status');
