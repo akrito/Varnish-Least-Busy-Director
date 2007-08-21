@@ -73,6 +73,13 @@ sub new($$;%) {
     $self->{'server'} = Varnish::Test::Server->new($self);
     $self->{'varnish'} = Varnish::Test::Varnish->new($self);
 
+    my ($ev) = $self->run_loop('ev_varnish_started', 'ev_varnish_timeout');
+
+    if ($ev eq 'ev_varnish_timeout') {
+	$self->{'varnish'}->shutdown;
+	die "Varnish did not start\n";
+    }
+
     return $self;
 }
 

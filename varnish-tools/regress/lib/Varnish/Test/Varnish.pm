@@ -136,21 +136,11 @@ sub new($$;$) {
     $self->{'mux'}->add($self->{'stderr'});
     $self->{'mux'}->set_callback_object($self, $self->{'stderr'});
 
-    # Wait up to 5 seconds for Varnish to accept our connection
-    # on the management port
-    for (my $i = 0; $i < 10; ++$i) {
-	last if $self->{'socket'} = IO::Socket::INET->
-	    new(Type => SOCK_STREAM,
-		PeerAddr => $engine->{'config'}->{'telnet_address'});
-	select(undef, undef, undef, 0.5);
-    }
-    if (!defined($self->{'socket'})) {
-	kill(15, delete $self->{'pid'});
-	die "Varnish did not start\n";
-    }
-    $self->{'mux'}->add($self->{'socket'});
-    $self->{'mux'}->set_callback_object($self, $self->{'socket'});
-    $self->{'state'} = 'stopped';
+    # If we don't hear "rolling(2)..." from Varnish's STDERR within 5
+    # seconds, something must be wrong.
+    $self->{'mux'}->set_timeout($self->{'stderr'}, 5);
+
+    $self->{'state'} = 'init';
 
     return $self;
 }
@@ -277,23 +267,26 @@ sub shutdown($) {
 	if $self->{'pid'};
 }
 
-sub kill($;$) {
-    my ($self, $signal) = @_;
-
-    $signal ||= 15;
-    die "Not running\n"
-	unless defined($self->{'pid'});
-    kill($signal, $self->{'pid'});
-    delete $self->{'pid'};
-}
-
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
     $self->log($$data);
 
-    $self->{'mux'}->set_timeout($fh, undef);
-    if ($fh == $self->{'socket'}) {
+    if ($fh == $self->{'stderr'} and $$data =~ s/^rolling\(2\)\.\.\.//m) {
+	# Varnish appears to have been started correctly, so connect
+	# to management socket.
+	$self->{'mux'}->set_timeout($fh, undef);
+	$self->{'state'} = 'stopped';
+	$self->{'socket'} = IO::Socket::INET
+	    ->new('Type' => SOCK_STREAM,
+		  'PeerAddr' => $self->{'engine'}->{'config'}->{'telnet_address'});
+	die "Unable to connect to management socket\n"
+	    unless defined($self->{'socket'});
+	$self->{'mux'}->add($self->{'socket'});
+	$self->{'mux'}->set_callback_object($self, $self->{'socket'});
+	$self->{'engine'}->ev_varnish_started;
+    } elsif (exists($self->{'socket'}) and $fh == $self->{'socket'}) {
+	$self->{'mux'}->set_timeout($fh, undef);
 	die "syntax error\n"
 	    unless ($$data =~ m/^([1-5][0-9][0-9]) (\d+) *$/m);
 	my ($line, $code, $len) = ($&, $1, $2);
