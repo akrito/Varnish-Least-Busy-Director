@@ -107,7 +107,7 @@ sub shutdown($) {
     if (defined($self->{'fh'})) {
 	my $inbuffer = $self->{'mux'}->inbuffer($self->{'fh'});
 
-	if ($inbuffer ne '') {
+	if (defined($inbuffer) and $inbuffer ne '') {
 	    use Data::Dumper;
 
 	    $self->log('Discarding: ' . Dumper(\$inbuffer));

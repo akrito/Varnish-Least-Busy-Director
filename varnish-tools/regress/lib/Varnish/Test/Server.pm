@@ -147,7 +147,7 @@ sub shutdown($) {
 
     my $inbuffer = $self->{'mux'}->inbuffer($self->{'fh'});
 
-    if ($inbuffer ne '') {
+    if (defined($inbuffer) and $inbuffer ne '') {
 	use Data::Dumper;
 
 	$self->{'server'}->log('Junk or incomplete request. Discarding: ' . Dumper(\$inbuffer));
