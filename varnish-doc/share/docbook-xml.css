@@ -144,7 +144,7 @@ orderedlist, itemizedlist, variablelist {
 
 orderedlist > listitem {
 	display: list-item;
-	list-style: decimal inside;
+	list-style: decimal outside;
 	margin-left: 4em;
 }
 
@@ -253,4 +253,16 @@ function {
 function:after {
 	content: "()";
 	font-family: monospace;
+}
+
+/*
+ * Textual screenshot
+ */
+screen {
+	display: block;
+	margin-top: 1ex;
+	border: thin solid black;
+	background-color: #ccc;
+	font-family: monospace;
+	padding: 0.5ex;
 }
