@@ -7,40 +7,49 @@ body {
 	font-family: sans-serif;
 }
 
-h1.book-title {
+.book-title {
+	color: maroon;
 	font-size: 200%;
 	font-weight: bold;
+	display: block;
 }
 
-h1.article-title {
+.article-title {
+	color: maroon;
 	font-size: 200%;
 	font-weight: bold;
+	display: block;
 }
 
-span.title1 {
+.title1 {
 	color: maroon;
 	font-weight: bold;
-	font-size: xx-large;
+	font-size: 200%;
+	display: block;
 }
 
-span.title2 {
+.title2 {
 	color: maroon;
 	font-weight: bold;
-	font-size: x-large;
+	font-size: 150%;
+	display: block;
 }
 
-span.title3 {
+.title3 {
 	color: maroon;
 	font-weight: bold;
-	font-size: large;
+	font-size: 120%;
+	display: block;
 }
 
-span.title4 {
+.title4 {
 	color: maroon;
 	font-weight: bold;
+	display: block;
 }
 
-span.title5 {
+.title5 {
 	color: maroon;
 	font-weight: bold;
+	display: block;
 }
