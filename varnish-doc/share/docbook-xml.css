@@ -54,7 +54,7 @@ book > appendix > title,
 book > bibliography > title
 {
 	font-weight: bold;
-	font-size: xx-large;
+	font-size: 150%;
 }
 
 /* level 1 */
@@ -87,7 +87,7 @@ book > appendix > section > title,
 book > bibliography > bibliodiv > title
 {
 	font-weight: bold;
-	font-size: x-large;
+	font-size: 120%;
 }
 
 /* level 2 */
@@ -114,7 +114,7 @@ book > chapter > section > section > title,
 book > appendix > section > section > title
 {
 	font-weight: bold;
-	font-size: large;
+	font-size: 100%;
 }
 
 /*
