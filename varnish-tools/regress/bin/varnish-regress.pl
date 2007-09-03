@@ -28,11 +28,19 @@
 # $Id$
 #
 
+=head1 NAME
+
+varnish-regress.pl - run Varnish regression tests
+
+=cut
+
 use strict;
 
-use FindBin;
-
-use lib "$FindBin::Bin/lib";
+eval { require Varnish::Test };
+if ($@) {
+    use FindBin;
+    use lib "$FindBin::Bin/../lib";
+}
 
 use Getopt::Long;
 use Varnish::Test;
@@ -84,3 +92,9 @@ MAIN:{
     my $report = new Varnish::Test::Report::HTML;
     $report->run($controller->results());
 }
+
+=head1 SEE ALSO
+
+L<Varnish::Test>
+
+=cut

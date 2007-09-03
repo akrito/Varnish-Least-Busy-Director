@@ -173,3 +173,12 @@ sub results($) {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<Varnish::Test::Engine>
+L<Varnish::Test::Varnish>
+L<Varnish::Test::Server>
+L<Varnish::Test::Case>
+
+=cut

@@ -85,7 +85,7 @@ fi
 ) > build.log 2>&1
 
 # Run regression test framework.
-PATH=/tmp/"$DIR"/sbin:"$PATH" trunk/varnish-tools/regress/varnish-regress.pl > regress.html 2> regress.log
+PATH=/tmp/"$DIR"/sbin:"$PATH" trunk/varnish-tools/regress/bin/varnish-regress.pl > regress.html 2> regress.log
 
 # Update status file.
 grep -A 4 '<th class="name">Total</th>' regress.html \
