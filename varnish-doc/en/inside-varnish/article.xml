@@ -335,7 +335,76 @@ Request timestamp + proc time + xmit time = Complete timestamp.
   <section>
     <title>The test framework</title>
 
-    <para>Lorem ipsum dolor sit amet</para>
+    <para>The test framework for Varnish consists of a library of Perl
+    modules organized under <filename>Varnish::Test</filename>. The
+    framework works by starting up a Varnish daemon process and
+    communicating with it while acting as both client and server. The
+    framework also operates the management command-line interface of
+    the Varnish daemon. This enables the framework to monitor all
+    external aspects of the daemon's behavior.</para>
+
+    <para>The test framework contains a set of test-cases, each one
+    being a Perl module organized under
+    <filename>Varnish::Test::Case</filename>. The test-cases are run
+    sequentially, and each one typically focuses on a specific element
+    of Varnish's behavior or functionality. If the expectations of a
+    test-case is not fulfilled by the daemon being tested, the
+    test-case fails. Only when all test-cases succeeds, the Varnish
+    daemon may be considered healthy.</para>
+
+    <para>Test-case development is an ongoing process, and anyone is
+    welcome to contribute test-cases which reveals erroneous behavior
+    in at least one revision of Varnish.</para>
+
+    <section>
+      <title>I/O-handling</title>
+
+      <para>The test framework is based on a single
+      <filename>select(2)</filename>-driven loop, where all relevant
+      I/O channels are monitored. Activity on the I/O channels is
+      handled in an event-driven way, so the select loop also works as
+      an event loop. I/O-events are dispatched and optionally handled
+      by the running test-case which then decides what to do next. The
+      event loop may be paused, in order to drive the test processing
+      flow forward.</para>
+    </section>
+
+    <section>
+      <title>Object structure</title>
+
+      <para>The test framework employs an object-oriented approach and
+      uses (Perl) objects to represent instances of servers
+      (<filename>Varnish::Test::Server</filename>), clients
+      (<filename>Varnish::Test::Client</filename>), and HTTP messages
+      (<filename>HTTP::Message</filename>).</para>
+
+      <para>Also, the Varnish daemon is represented by an object
+      (<filename>Varnish::Test::Varnish</filename>) taking care of the
+      daemon process which is spawned by the test framework process
+      before the tests start.</para>
+
+      <para>Additionally, each test-case is represented by its own
+      object derived from the super-class
+      <filename>Varnish::Test::Case</filename>.</para>
+
+      <para>In the center of all the objects stands the engine object
+      (<filename>Varnish::Test::Engine</filename>) which coordinates
+      the communication between the other objects by dispatching and
+      queuing events. The engine also sets up the
+      <filename>select(2)</filename>-loop, using an object instance of
+      the CPAN module <filename>IO::Multiplex</filename>.</para>
+    </section>
+
+    <section>
+      <title>Further information</title>
+
+      <para>Consult the POD-based in-source documentation for more
+      details if you like to get involved in developing test-cases or
+      improving the framework in general. In that case, prior
+      experience with Perl as well as a general understanding of
+      network programming using <filename>select(2)</filename>, is
+      beneficial.</para>
+    </section>
   </section>
 
   <section>
