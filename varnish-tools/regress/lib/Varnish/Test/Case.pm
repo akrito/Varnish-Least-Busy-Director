@@ -34,13 +34,15 @@ Varnish::Test::Case - test-case superclass
 
 =head1 DESCRIPTION
 
-Varnish::Test::Case is meant to be the superclass of specific
-test-case clases. It provides functionality to run a number of tests
-defined in methods whose names start with "test", as well as keeping
-track of the number of successful or failed tests.
+Varnish::Test::Case is the superclass of test-case clases. It provides
+functionality to run a number of tests defined in methods whose names
+start with "test", as well as keeping track of the number of
+successful or failed tests.
 
 It also provides default event handlers for "ev_client_response" and
 "ev_client_timeout", which are standard for most test-cases.
+
+=head1 METHODS
 
 =cut
 
@@ -54,6 +56,12 @@ use HTTP::Response;
 use POSIX qw(strftime);
 use Time::HiRes qw(gettimeofday tv_interval);
 
+=head2 new
+
+Create a new Case object.
+
+=cut
+
 sub new($$) {
     my ($this, $engine) =  @_;
     my $class = ref($this) || $this;
@@ -64,11 +72,24 @@ sub new($$) {
 		       'failed' => 0 }, $class);
 }
 
+=head2 log
+
+Logging facility.
+
+=cut
+
 sub log($$) {
     my ($self, $str) = @_;
 
     $self->{'engine'}->log($self, 'CAS: ', $str);
 }
+
+=head2 init
+
+Test-case initialization which loads specified VCL into Varnish and
+starts the Varnish daemon's child.
+
+=cut
 
 sub init($) {
     my ($self) = @_;
@@ -105,6 +126,13 @@ sub init($) {
     }
 }
 
+=head2 fini
+
+Does the reverse of "init" by stopping the Varnish child and reverting
+to a default VCL definition.
+
+=cut
+
 sub fini($) {
     my ($self) = @_;
 
@@ -126,6 +154,12 @@ sub fini($) {
 		    $self->{'failed'}, $self->{'count'});
     }
 }
+
+=head2 run
+
+Run test-case proper when everything is set up right.
+
+=cut
 
 sub run($;@) {
     my ($self, @args) = @_;
@@ -162,17 +196,36 @@ sub run($;@) {
     $self->{'stop'} = [gettimeofday()];
 }
 
+=head2 run_loop
+
+Proxy for Varnish::Test::Engine::run_loop.
+
+=cut
+
 sub run_loop($@) {
     my ($self, @wait_for) = @_;
 
     return $self->{'engine'}->run_loop(@wait_for);
 }
 
+=head2 new_client
+
+Creates a new Client object.
+
+=cut
+
 sub new_client($) {
     my ($self) = @_;
 
     return Varnish::Test::Client->new($self->{'engine'});
 }
+
+=head2 results
+
+Report test-case results as a hashref suitable for Template
+processing.
+
+=cut
 
 sub results($) {
     my ($self) = @_;
@@ -196,11 +249,21 @@ sub results($) {
 # Default event handlers
 #
 
+=head1 DEFAULT EVENT HANDLER METHODS
+
+=head2 ev_client_response
+
+=cut
+
 sub ev_client_response($$$) {
     my ($self, $client, $response) = @_;
 
     return $response;
 }
+
+=head2 ev_client_timeout
+
+=cut
 
 sub ev_client_timeout($$) {
     my ($self, $client) = @_;
@@ -208,6 +271,10 @@ sub ev_client_timeout($$) {
     $client->shutdown();
     return $client;
 }
+
+=head2 ev_server_request
+
+=cut
 
 sub ev_server_request($$$$) {
     my ($self, $server, $connection, $request) = @_;
@@ -237,6 +304,10 @@ sub ev_server_request($$$$) {
     $connection->send_response($response);
 }
 
+=head2 ev_server_timeout
+
+=cut
+
 sub ev_server_timeout($$) {
     my ($self, $srvconn) = @_;
 
@@ -247,6 +318,16 @@ sub ev_server_timeout($$) {
 #
 # Client utilities
 #
+
+=head1 CLIENT UTILITY METHODS
+
+=head2 request
+
+Prepare and send an HTTP request using Client object given as
+argument. Also, HTTP method, URI, HTTP headers and content are given
+as argument. HTTP headers and content is optional.
+
+=cut
 
 sub request($$$$;$$) {
     my ($self, $client, $method, $uri, $header, $content) = @_;
@@ -279,17 +360,39 @@ sub request($$$$;$$) {
     return $self->{'cached_response'} = $resp;
 }
 
+=head2 head
+
+Send "HEAD" request using "request" method above. Client object, URI,
+and HTTP headers (optional) are given as arguments.
+
+=cut
+
 sub head($$$;$) {
     my ($self, $client, $uri, $header) = @_;
 
     return $self->request($client, 'HEAD', $uri, $header);
 }
 
+=head2 get
+
+Send "GET" request using "request" method above. Client object, URI,
+and HTTP headers (optional) are given as arguments.
+
+=cut
+
 sub get($$$;$) {
     my ($self, $client, $uri, $header) = @_;
 
     return $self->request($client, 'GET', $uri, $header);
 }
+
+=head2 post
+
+Send "POST" request using "request" method above. Client object, URI,
+and HTTP headers (optional) and body (optional) are given as
+arguments.
+
+=cut
 
 sub post($$$;$$) {
     my ($self, $client, $uri, $header, $body) = @_;
@@ -298,6 +401,18 @@ sub post($$$;$$) {
 	unless defined($header);
     return $self->request($client, 'POST', $uri, $header, $body);
 }
+
+=head1 ASSERT METHODS
+
+The following assert methods take an optional response object is their
+last argument. When this argument is not used, response object is
+looked up in $self->{'cached_response'}.
+
+=head2 assert_code
+
+Assert a certain HTTP status code.
+
+=cut
 
 sub assert_code($$;$) {
     my ($self, $code, $resp) = @_;
@@ -308,6 +423,12 @@ sub assert_code($$;$) {
 	unless $resp->code == $code;
 }
 
+=head2 assert_ok
+
+Assert status "200 OK" using "assert_code" method above.
+
+=cut
+
 sub assert_ok($;$) {
     my ($self, $resp) = @_;
 
@@ -316,6 +437,12 @@ sub assert_ok($;$) {
 
     $self->assert_code(200, $resp);
 }
+
+=head2 assert_xid
+
+Assert a certain XID in "X-Varnish" header.
+
+=cut
 
 sub assert_xid($;$) {
     my ($self, $resp) = @_;
@@ -329,6 +456,12 @@ sub assert_xid($;$) {
 	unless ($resp->header('X-Varnish') =~ m/^\d+(?: \d+)?$/);
 }
 
+=head2 assert_no_xid
+
+Assert absence of "X-Varnish" header.
+
+=cut
+
 sub assert_no_xid($;$) {
     my ($self, $resp) = @_;
 
@@ -338,6 +471,12 @@ sub assert_no_xid($;$) {
     die "X-Varnish header present where none expected\n"
 	if (defined($resp->header('X-Varnish')));
 }
+
+=head2 assert_cached
+
+Assert that "X-Varnish" header indicates that the response was cached.
+
+=cut
 
 sub assert_cached($;$) {
     my ($self, $resp) = @_;
@@ -350,6 +489,13 @@ sub assert_cached($;$) {
 	unless $resp->header('X-Varnish') =~ /^\d+ \d+$/;
 }
 
+=head2 assert_uncached
+
+Assert that "X-Varnish" header indicates that the response was NOT
+cached.
+
+=cut
+
 sub assert_uncached($;$) {
     my ($self, $resp) = @_;
 
@@ -360,6 +506,13 @@ sub assert_uncached($;$) {
     die "$uri shouldn't be cached but is\n"
 	if $resp->header('X-Varnish') =~ /^\d+ \d+$/;
 }
+
+=head2 assert_header
+
+Assert that a certain header (named by an argument) is present, and
+optionally matches a given regular expression.
+
+=cut
 
 sub assert_header($$;$$) {
     my ($self, $header, $re, $resp) = @_;
@@ -375,6 +528,13 @@ sub assert_header($$;$$) {
     }
 }
 
+=head2 assert_body
+
+Assert presence of a HTTP body, optionally matching given regular
+expression.
+
+=cut
+
 sub assert_body($;$$) {
     my ($self, $re, $resp) = @_;
 
@@ -389,6 +549,12 @@ sub assert_body($;$$) {
     }
 }
 
+=head2 assert_no_body
+
+Assert absence of HTTP body.
+
+=cut
+
 sub assert_no_body($;$) {
     my ($self, $resp) = @_;
 
@@ -402,6 +568,14 @@ sub assert_no_body($;$) {
 # Miscellaneous
 #
 
+=head1 MISCELLANEOUS METHODS
+
+=head2 usleep
+
+Sleep for a given number of microseconds.
+
+=cut
+
 sub usleep($$) {
     my ($self, $usec) = @_;
 
@@ -409,3 +583,11 @@ sub usleep($$) {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<Varnish::Test::Client>
+L<HTTP::Request>
+L<HTTP::Response>
+
+=cut

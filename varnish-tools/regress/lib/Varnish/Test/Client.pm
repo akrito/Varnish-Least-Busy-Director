@@ -44,8 +44,16 @@ package Varnish::Test::Client;
 use strict;
 
 use IO::Socket::INET;
+use HTTP::Response;
 
 our $id_seq = 1;
+
+=head2 new
+
+Called by test-cases to create a new Client object to be used to send
+HTTP-requests.
+
+=cut
 
 sub new($$) {
     my ($this, $engine, $attrs) = @_;
@@ -62,17 +70,35 @@ sub new($$) {
     return $self;
 }
 
+=head2 log
+
+Logging facility.
+
+=cut
+
 sub log($$;$) {
     my ($self, $str, $extra_prefix) = @_;
 
     $self->{'engine'}->log($self, sprintf('CLI[%d]: ', $self->{'id'}) . ($extra_prefix || ''), $str);
 }
 
+=head2 logf
+
+Logging facility using a formatting string as first argument.
+
+=cut
+
 sub logf($$;@) {
     my ($self, $fmt, @args) = @_;
 
     $self->{'engine'}->log($self, sprintf('CLI[%d]: ', $self->{'id'}), sprintf($fmt, @args));
 }
+
+=head2 send_request
+
+Called by test-cases to send HTTP requests out on a connection.
+
+=cut
 
 sub send_request($$;$) {
     my ($self, $request, $timeout) = @_;
@@ -93,6 +119,13 @@ sub send_request($$;$) {
     $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
 }
 
+=head2 got_response
+
+Called by mux_input and mux_eof to dispatch event related to received
+HTTP response.
+
+=cut
+
 sub got_response($$) {
     my ($self, $response) = @_;
 
@@ -100,6 +133,13 @@ sub got_response($$) {
     $self->logf("%s %s", $response->code(), $response->message());
     $self->{'engine'}->ev_client_response($self, $response);
 }
+
+=head2 shutdown
+
+Called by test-cases to shutdown client including termination of HTTP
+connection.
+
+=cut
 
 sub shutdown($) {
     my ($self) = @_;
@@ -118,6 +158,17 @@ sub shutdown($) {
 	$self->{'fh'} = undef;
     }
 }
+
+=head1 IO::MULTIPLEX CALLBACKS
+
+=head2 mux_input
+
+Called by L<IO::Multiplex> when new input is received on an associated
+file-handle. Complete HTTP messages are extracted from the input
+buffer, while any incomplete message is left in the buffer, awaiting
+more input (mux_input) or EOF (mux_eof).
+
+=cut
 
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
@@ -197,6 +248,13 @@ sub mux_input($$$$) {
     # nothing at all or a partial HTTP message.
 }
 
+=head2 mux_eof
+
+Called by L<IO::Multiplex> when connection is being shutdown by
+foreign host.
+
+=cut
+
 sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
@@ -210,12 +268,26 @@ sub mux_eof($$$$) {
     }
 }
 
+=head2 mux_timeout
+
+Called by L<IO::Multiplex> when a specified timeout has been reached
+on an associated file-handle.
+
+=cut
+
 sub mux_timeout($$$) {
     my ($self, $mux, $fh) = @_;
 
     $self->{'mux'}->set_timeout($fh, undef);
     $self->{'engine'}->ev_client_timeout($self);
 }
+
+=head2 mux_close
+
+Called by L<IO::Multiplex> when an associated file-handle has been
+closed.
+
+=cut
 
 sub mux_close($$) {
     my ($self, $mux, $fh) = @_;
@@ -224,3 +296,10 @@ sub mux_close($$) {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<HTTP::Response>
+L<HTTP::Request>
+
+=cut

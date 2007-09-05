@@ -1,2 +1,0 @@
-* Completely POD-ify Perl-code.
-* Detect and act upon unexpected death of Varnish grandchild process.

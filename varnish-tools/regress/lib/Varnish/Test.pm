@@ -34,7 +34,7 @@ Varnish::Test - Regression test framework for Varnish
 
 =head1 DESCRIPTION
 
-The varnish regression test framework works by starting up a Varnish
+The Varnish regression test framework works by starting up a Varnish
 process and then communicating with this process as both client and
 server.
 
@@ -63,7 +63,7 @@ of both HTTP client and server.
 
 A single select(2)-driven loop is used to handle all activity on both
 server and client side, as well on Varnish's I/O-channels. This is
-done using IO::Multiplex.
+done using L<IO::Multiplex>.
 
 As a result of using a select-loop (as opposed to a multi-threaded or
 multi-process approach), the framework has an event-driven design in
@@ -98,12 +98,20 @@ object, and also determines whether the event being processed is
 supposed to pause the select-loop and return control back to the main
 program.
 
+=head1 METHODS
+
 =cut
 
 package Varnish::Test;
 
 use Varnish::Test::Case;
 use Varnish::Test::Engine;
+
+=head2 new
+
+Create a new Test object.
+
+=cut
 
 sub new($) {
     my ($this) =  @_;
@@ -112,12 +120,29 @@ sub new($) {
     return bless({ 'cases' => [] }, $class);
 }
 
+=head2 start_engine
+
+Creates an associated L<Varnish::Test::Engine> object which in turn
+starts an L<IO::Multiplex>, a L<Varnish::Test::server>, and a
+L<Varnish::Test::Varnish> object.
+
+=cut
+
 sub start_engine($;@) {
     my ($self, @args) = @_;
 
     return if defined $self->{'engine'};
     $self->{'engine'} = Varnish::Test::Engine->new(@args);
 }
+
+=head2 stop_engine
+
+Stop Engine object using its "shutdown" method which also stops the
+server, Varnish, and closes all other open sockets (which might have
+been left by client objects that have not been shut down explicitly
+during test-case run).
+
+=cut
 
 sub stop_engine($;$) {
     my ($self) = @_;
@@ -127,6 +152,13 @@ sub stop_engine($;$) {
 	delete $self->{'engine'};
     }
 }
+
+=head2 cases
+
+Return a list of Perl modules under Varnish/Test/Case directory. These
+are all the available test-cases.
+
+=cut
 
 sub cases($) {
     my ($self) = @_;
@@ -140,6 +172,12 @@ sub cases($) {
     closedir(DIR);
     return @cases;
 }
+
+=head2 run_case
+
+Run a test-case given by its name.
+
+=cut
 
 sub run_case($$) {
     my ($self, $name) = @_;
@@ -166,6 +204,12 @@ sub run_case($$) {
     }
 }
 
+=head2 results
+
+Return a hashref of all test-case results.
+
+=cut
+
 sub results($) {
     my ($self) = @_;
 
@@ -177,8 +221,9 @@ sub results($) {
 =head1 SEE ALSO
 
 L<Varnish::Test::Engine>
-L<Varnish::Test::Varnish>
 L<Varnish::Test::Server>
+L<Varnish::Test::Varnish>
 L<Varnish::Test::Case>
+L<IO::Multiplex>
 
 =cut

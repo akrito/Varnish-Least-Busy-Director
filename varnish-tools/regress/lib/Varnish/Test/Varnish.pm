@@ -30,16 +30,18 @@
 
 =head1 NAME
 
-Varnish::Test::Varnish - Varnish child-process controller
+Varnish::Test::Varnish - Varnish daemon process controller
 
 =head1 DESCRIPTION
 
-A Varnish::Test::Varnish object is used to fork off a Varnish child
-process and control traffic going into and coming out of the Varnish
-(management process) command-line interface (CLI).
+A Varnish::Test::Varnish object is used to fork off a Varnish daemon
+(varnishd) process and control traffic going into and coming out of
+the Varnish (management process) command-line interface (CLI).
 
 Various events are generated when certain strings are identified in
 the output from the CLI.
+
+=head1 METHODS
 
 =cut
 
@@ -49,6 +51,13 @@ use strict;
 
 use IO::Socket::INET;
 use Socket;
+
+=head2 new
+
+Called by an Varnish::Test::Engine object to create a
+Varnish::Test::Varnish object which spawns a "varnishd" sub-process.
+
+=cut
 
 sub new($$;$) {
     my ($this, $engine, $attrs) =  @_;
@@ -145,11 +154,24 @@ sub new($$;$) {
     return $self;
 }
 
+=head2 log
+
+Logging facility.
+
+=cut
+
 sub log($$) {
     my ($self, $str) = @_;
 
     $self->{'engine'}->log($self, 'VAR: ', $str);
 }
+
+=head2 backend_block
+
+Return a string containing a VCL "backend" block containing the
+information about the running backend (Varnish::Test::Server object).
+
+=cut
 
 sub backend_block($$) {
     my ($self, $name) = @_;
@@ -157,6 +179,13 @@ sub backend_block($$) {
     return sprintf("backend %s {\n  set backend.host = \"%s\";\n  set backend.port = \"%s\";\n}\n",
 		   $name, split(':', $self->{'engine'}->{'config'}->{'server_address'}));
 }
+
+=head2 send_command
+
+Called by main program or test-cases to send commands to the Varnish
+deamon.
+
+=cut
 
 sub send_command($@) {
     my ($self, @args) = @_;
@@ -186,17 +215,37 @@ sub send_command($@) {
     return ($code, $text);
 }
 
+=head2 send_vcl
+
+Send "vcl.inline" command to Varnish daemon.
+
+=cut
+
 sub send_vcl($$$) {
     my ($self, $config, $vcl) = @_;
 
     return $self->send_command('vcl.inline', $config, $vcl);
 }
 
+=head2 use_vcl
+
+Send "vcl.use" command to the Varnish daemon.
+
+=cut
+
 sub use_vcl($$) {
     my ($self, $config) = @_;
 
     return $self->send_command('vcl.use', $config);
 }
+
+=head2 start_child
+
+Issue command to start Varnish daemon's child process, so that HTTP
+traffic may begin. An B<ev_varnish_started> will be dispatched from
+"mux_input" once the child actually has started.
+
+=cut
 
 sub start_child($) {
     my ($self) = @_;
@@ -223,6 +272,12 @@ sub start_child($) {
     return (500, 'unable to start child');
 }
 
+=head2 stop_child
+
+Issue command to stop Varnish daemon's child process.
+
+=cut
+
 sub stop_child($) {
     my ($self) = @_;
     die "not ready\n"
@@ -246,11 +301,23 @@ sub stop_child($) {
     return (500, 'unable to stop child');
 }
 
+=head2 set_param
+
+Send "param.set" command to Varnish daemon.
+
+=cut
+
 sub set_param($$$) {
     my ($self, $param, $value) = @_;
 
     return $self->send_command('param.set', $param, $value);
 }
+
+=head2 shutdown
+
+Shutdown Varnish daemon.
+
+=cut
 
 sub shutdown($) {
     my ($self) = @_;
@@ -266,6 +333,14 @@ sub shutdown($) {
     kill(15, delete $self->{'pid'})
 	if $self->{'pid'};
 }
+
+=head2 mux_input
+
+Called by L<IO::Multiplex> when new input is received on the Varnish
+daemon's output channels. Dispatches relevant events based on the
+output received.
+
+=cut
 
 sub mux_input($$$$) {
     my ($self, $mux, $fh, $data) = @_;
@@ -317,6 +392,13 @@ sub mux_input($$$$) {
 	$$data = '';
     }
 }
+
+=head2 mux_timeout
+
+Called by L<IO::Multiplex> when a specified timeout has been reached
+on an associated file-handle. Dispatch an B<ev_varnish_timeout> event.
+
+=cut
 
 sub mux_timeout($$$) {
     my ($self, $mux, $fh) = @_;

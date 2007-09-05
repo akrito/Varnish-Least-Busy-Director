@@ -28,11 +28,31 @@
 # $Id$
 #
 
+=head1 NAME
+
+Varnish::Test::Report
+
+=head1 DESCRIPTION
+
+Produce test result reports in different formats. Currently, HTML
+format is supported via a subclass found in
+Varnish::Test::Report::HTML.
+
+=head1 METHODS
+
+=cut
+
 package Varnish::Test::Report;
 
 use strict;
 
 use Template;
+
+=head2 new
+
+Create a new Report object.
+
+=cut
 
 sub new($) {
     my ($this) =  @_;
@@ -50,6 +70,12 @@ sub new($) {
 
     return $self;
 }
+
+=head2 new
+
+Generate report.
+
+=cut
 
 sub run($@) {
     my ($self, @cases) = @_;
@@ -75,3 +101,9 @@ sub run($@) {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<Template>
+
+=cut

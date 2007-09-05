@@ -34,14 +34,14 @@ Varnish::Test::Engine - select-loop wrapper and event dispatcher
 
 =head1 DESCRIPTION
 
-Varnish::Test::Engine is primarily a wrapper around a
-IO::Multiplex-based select-loop which monitors activity on
-client-side, server-side and Varnish's I/O-channels. On startup, it
-automatically creates an associated Server object and a Varnish
-objects whoses sockets/filehandles are registered in the
-IO::Multiplex-object.
+An L<Engine|Varnish::Test::Engine> object is primarily a wrapper
+around a L<select(2)>-based L<IO::Multiplex> object which monitors
+activity on relevant sockets and file handles.
 
-Additionally, event dispatching is performed by the AUTOLOAD method.
+Additionally, an Engine object performs event dispatching and queuing,
+which are handled by an AUTOLOAD method.
+
+=head1 METHODS
 
 =cut
 
@@ -52,6 +52,16 @@ use strict;
 use Varnish::Test::Server;
 use Varnish::Test::Varnish;
 use IO::Multiplex;
+
+=head2 new
+
+Used by main program to create a new Varnish::Test::Engine object
+which starts up a L<Varnish::Test::Server> and
+L<Varnish::Test::Varnish> object, so test-cases are ready to be run.
+Also an <IO::Multiplex> object is started to handle the central
+select(2) mechanism.
+
+=cut
 
 sub new($$;%) {
     my ($this, $controller, %config) =  @_;
@@ -83,6 +93,12 @@ sub new($$;%) {
     return $self;
 }
 
+=head2 log
+
+Logging facility.
+
+=cut
+
 sub log($$$) {
     my ($self, $object, $prefix, $str) = @_;
 
@@ -91,6 +107,14 @@ sub log($$$) {
 
     print STDERR $str;
 }
+
+=head2 run_loop
+
+Enter event loop based on IO::Multiplex::loop. Also, handles
+dispatching of "wait-for" or "die" events which are returned to the
+caller.
+
+=cut
 
 sub run_loop($@) {
     my ($self, @wait_for) = @_;
@@ -145,6 +169,13 @@ sub run_loop($@) {
     return undef;
 }
 
+=head2 shutdown
+
+Shutdown Engine by shutting down Server, Varnish, and IO::Multiplex
+objects.
+
+=cut
+
 sub shutdown($) {
     my ($self) = @_;
 
@@ -158,7 +189,17 @@ sub shutdown($) {
     }
 }
 
-sub AUTOLOAD ($;@) {
+=head2 AUTOLOAD
+
+Event dispatch mechanism. When an I/O event occurs, it goes through
+this method because $engine->ev_* resolves to this one. It will the
+look for a method of the same name in the running test-case object.
+Queuing and end-loop signaling is done when a "wait-for" or "die"
+event occurs.
+
+=cut
+
+sub AUTOLOAD($;@) {
     my ($self, @args) = @_;
 
     (my $event = our $AUTOLOAD) =~ s/.*://;
@@ -209,3 +250,11 @@ sub AUTOLOAD ($;@) {
 }
 
 1;
+
+=head1 SEE ALSO
+
+L<Varnish::Test::Varnish>
+L<Varnish::Test::Server>
+L<IO::Multiplex>
+
+=cut

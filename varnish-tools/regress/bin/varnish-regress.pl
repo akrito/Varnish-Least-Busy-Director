@@ -32,6 +32,27 @@
 
 varnish-regress.pl - run Varnish regression tests
 
+=head1 DESCRIPTION
+
+This program is a thin wrapper around the L<Varnish::Test> regression
+test framework library. Using this library, regression tests are
+performed on Varnish.
+
+The Varnish daemon (L<varnishd>) must be available in one of the
+directories given by the "PATH" environment variable.
+
+By default, this program will run all test-cases available in the
+regression test framework library, or the test-cases selected by name
+as arguments on the command line.
+
+=head1 OUTPUT
+
+STDERR is used to continually report progress during testing.
+
+STDOUT is used to output a HTML-formatted report at the end of the
+run, provided that execution does not abort prematurely for any
+reason.
+
 =cut
 
 use strict;
@@ -96,5 +117,6 @@ MAIN:{
 =head1 SEE ALSO
 
 L<Varnish::Test>
+L<Varnish::Test::Report>
 
 =cut
