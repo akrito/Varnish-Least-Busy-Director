@@ -16,8 +16,8 @@ lib/Varnish/Test/Report.pm
 lib/Varnish/Test/Report/HTML.pm
 lib/Varnish/Test/Report/report.html
 lib/Varnish/Test/Server.pm
+lib/Varnish/Test/Server/Connection.pm
 lib/Varnish/Test/Varnish.pm
 Makefile.PL
 MANIFEST
 README
-TODO
