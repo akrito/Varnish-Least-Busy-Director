@@ -5,6 +5,7 @@ article, book {
 	color: black;
 	font-family: sans-serif;
 	margin: 1in;
+	max-width: 80ex;
 }
 
 /*
@@ -228,6 +229,13 @@ xref:after {
 }
 
 /*
+ * Formatting
+ */
+emphasis {
+	font-style: italic;
+}
+
+/*
  * Misc
  */
 command {
@@ -264,5 +272,6 @@ screen {
 	border: thin solid black;
 	background-color: #ccc;
 	font-family: monospace;
+	white-space: pre;
 	padding: 0.5ex;
 }
