@@ -62,6 +62,7 @@ sub new($$) {
     my $self = bless({ 'engine' => $engine,
 		       'mux' => $engine->{'mux'},
 		       'id' => $id_seq++,
+		       'pending' => [],
 		       'requests' => 0,
 		       'responses' => 0 }, $class);
 
@@ -117,6 +118,7 @@ sub send_request($$;$) {
     $self->{'mux'}->write($self->{'fh'}, $request->as_string("\r\n"));
     $self->{'requests'} += 1;
     $self->logf("%s %s %s", $request->method(), $request->uri(), $request->protocol());
+    push(@{$self->{'pending'}}, $request);
 }
 
 =head2 got_response
@@ -131,7 +133,7 @@ sub got_response($$) {
 
     $self->{'responses'} += 1;
     $self->logf("%s %s", $response->code(), $response->message());
-    $self->{'engine'}->ev_client_response($self, $response);
+    $self->{'engine'}->ev_client_response($self, $response, shift(@{$self->{'pending'}}));
 }
 
 =head2 shutdown
@@ -183,6 +185,9 @@ sub mux_input($$$$) {
     # if connection is closed ("mux_eof").
 
     while ($$data =~ /\n\r?\n/) {
+	die "Received HTTP-data without awaiting any response\n"
+	    unless @{$self->{'pending'}};
+
 	# If we find a double (CR)LF in the input data, we have at
 	# least a complete header section of a message, so look for
 	# content-length and decide what to do.
@@ -190,21 +195,24 @@ sub mux_input($$$$) {
 	my $response = HTTP::Response->parse($$data);
 	my $content_length = $response->content_length;
 
-	if (defined($content_length)) {
+	if (${$self->{'pending'}}[0]->method eq 'HEAD') {
+	    # This is the response of a HEAD request, so we don't
+	    # expect or want any content. Any remaining input data
+	    # should be the start of another HTTP-message.
+
+	    $$data = $response->content;
+	    $response->content('');
+
+	    # Send response to event handling.
+	    $self->got_response($response);
+	}
+	elsif (defined($content_length)) {
 	    my $content_ref = $response->content_ref;
 	    my $data_length = length($$content_ref);
 	    if ($data_length == $content_length) {
 		# We found exactly content-length amount of data, so
 		# empty input buffer and send response to event
 		# handling.
-		$$data = '';
-		$self->got_response($response);
-	    }
-	    elsif ($data_length == 0) {
-		# We got a body-less response, which may or may not
-		# be correct; leave it to the test case to decide.
-		$self->log("No body received despite" .
-			   " Content-Length $content_length");
 		$$data = '';
 		$self->got_response($response);
 	    }
@@ -259,13 +267,17 @@ sub mux_eof($$$$) {
     my ($self, $mux, $fh, $data) = @_;
 
     if ($$data ne '') {
-	die "Junk or incomplete response\n"
+	die "Received HTTP-data without awaiting any response\n"
+	    unless @{$self->{'pending'}};
+	die "Received incomplete response headers and connection is closing\n"
 	    unless $$data =~ "\n\r?\n";
 
 	my $response = HTTP::Response->parse($$data);
 	$$data = '';
 	$self->got_response($response);
     }
+    $self->logf("%d pending request(s) never received a response\n", @{$self->{'pending'}})
+	if @{$self->{'pending'}};
 }
 
 =head2 mux_timeout
