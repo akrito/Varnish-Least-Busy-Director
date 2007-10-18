@@ -43,7 +43,7 @@ our $DESCR = "Tests Varnish's ability to correctly pass POST requests" .
 # latter receives the Varnish Guru Meditation intended for the former.
 # This seems to be a bug in either IO::Multiplex or Varnish::Test.
 #
-our @TESTS = qw(testPipePOST testCachePOST testPassPOST);
+our @TESTS = qw(testPassPOST testCachePOST testPipePOST);
 
 our $VCL = <<EOVCL;
 sub vcl_recv {
