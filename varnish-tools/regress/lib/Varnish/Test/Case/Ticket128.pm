@@ -49,6 +49,7 @@ sub testSyntheticError($) {
 
     my $client = $self->new_client;
     $self->get($client, '/');
+    $self->wait();
     $self->assert_code($CODE);
     $self->assert_body(qr/\Q$MESSAGE\E/);
     $client->shutdown();

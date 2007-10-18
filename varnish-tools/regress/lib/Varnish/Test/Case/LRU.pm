@@ -51,7 +51,8 @@ sub _testLRU($$) {
 
     my $client = $self->new_client();
     my $uri = __PACKAGE__ . "::$n";
-    my $response = $self->get($client, $uri);
+    my $request = $self->get($client, $uri);
+    my $response = $self->wait();
     $self->assert_body(qr/^(?:\Q$uri\E){$repeat}$/);
     $client->shutdown();
     return $response;

@@ -58,26 +58,33 @@ sub testPagePurged($) {
 
     # Warm up the cache
     $self->get($client, $KEEP_URL);
+    $self->wait();
     $self->assert_ok();
     $self->get($client, $PURGE_URL);
+    $self->wait();
     $self->assert_ok();
 
     # Verify the state of the cache
     $self->get($client, $KEEP_URL);
+    $self->wait();
     $self->assert_ok();
     $self->assert_cached();
     $self->get($client, $PURGE_URL);
+    $self->wait();
     $self->assert_ok();
     $self->assert_cached();
 
     # Send the purge request
     $self->request($client, 'REPURGE', $PURGE_RE);
+    $self->wait();
 
     # Verify the state of the cache
     $self->get($client, $KEEP_URL);
+    $self->wait();
     $self->assert_ok();
     $self->assert_cached();
     $self->get($client, $PURGE_URL);
+    $self->wait();
     $self->assert_ok();
     $self->assert_uncached();
 

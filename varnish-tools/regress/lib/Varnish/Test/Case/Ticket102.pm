@@ -53,14 +53,17 @@ sub testBodyInCachedPOST($) {
     my $client = $self->new_client;
 
     $self->get($client, '/');
+    $self->wait();
     $self->assert_body($BODY);
     $self->assert_uncached();
 
     $self->post($client, '/');
+    $self->wait();
     $self->assert_body($BODY);
     $self->assert_cached();
 
     $self->head($client, '/');
+    $self->wait();
     $self->assert_no_body();
     $self->assert_cached();
 

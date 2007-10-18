@@ -49,12 +49,14 @@ sub testVary($) {
 
     foreach my $lang (keys %languages) {
 	$self->get($client, '/', [ 'Accept-Language', $lang]);
+	$self->wait();
 	# $self->assert_uncached();
 	$self->assert_header('Language', $lang);
 	$self->assert_body($languages{$lang});
     }
     foreach my $lang (keys %languages) {
 	$self->get($client, '/', [ 'Accept-Language', $lang]);
+	$self->wait();
 	$self->assert_cached();
 	$self->assert_body($languages{$lang});
     }

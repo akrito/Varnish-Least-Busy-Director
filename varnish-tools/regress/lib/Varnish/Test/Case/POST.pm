@@ -79,6 +79,7 @@ sub testPipePOST($) {
 
     my $client = $self->new_client;
     $self->post($client, "/pipe_me", [], $MAGIC_WORDS);
+    $self->wait();
     $self->assert_ok();
     $self->assert_no_xid();
     $self->assert_body(qr/\Q$MAGIC_WORDS\E/);
@@ -93,12 +94,14 @@ sub testCachePOST($) {
 
     # Warm up the cache
     $self->post($client, "/cache_me");
+    $self->wait();
     $self->assert_ok();
     $self->assert_uncached();
     $self->assert_body(qr/\Q$NOTHING_HAPPENS\E/);
 
     # Verify that the request was cached
     $self->post($client, "/cache_me");
+    $self->wait();
     $self->assert_ok();
     $self->assert_cached();
     $self->assert_body(qr/\Q$NOTHING_HAPPENS\E/);

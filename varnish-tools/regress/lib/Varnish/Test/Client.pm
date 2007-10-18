@@ -133,7 +133,13 @@ sub got_response($$) {
 
     $self->{'responses'} += 1;
     $self->logf("%s %s", $response->code(), $response->message());
-    $self->{'engine'}->ev_client_response($self, $response, shift(@{$self->{'pending'}}));
+
+    # Associate the response with what we hope is the correct request
+    my $request = shift(@{$self->{'pending'}})
+	or die "received response while no request pending\n";
+    $response->request($request);
+
+    $self->{'engine'}->ev_client_response($self, $response);
 }
 
 =head2 shutdown

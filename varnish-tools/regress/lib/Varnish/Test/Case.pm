@@ -346,6 +346,18 @@ sub request($$$$;$$) {
 	$req->content($content);
     }
     $client->send_request($req, 4);
+    return $req;
+}
+
+=head2 wait
+
+Wait for a response to a previously sent request.
+
+=cut
+
+sub wait($) {
+    my ($self) = @_;
+
     my ($ev, $resp) =
 	$self->run_loop('ev_server_timeout',
 			'ev_client_timeout',
@@ -356,7 +368,6 @@ sub request($$$$;$$) {
 	if $ev eq 'ev_client_timeout';
     die "Internal error\n"
 	unless $resp && ref($resp) && $resp->isa('HTTP::Response');
-    $resp->request($req);
     return $self->{'cached_response'} = $resp;
 }
 
