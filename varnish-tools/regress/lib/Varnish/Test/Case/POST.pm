@@ -39,11 +39,11 @@ our $DESCR = "Tests Varnish's ability to correctly pass POST requests" .
 # testCachePOST and testPassPOST are known to fail, and it is not
 # clear at this point whether that is a bug or a feature.
 #
-# More interestingly, if you run testPassPOST after testPipePOST, the
+# More interestingly, if you run testPassPOST before testPipePOST, the
 # latter receives the Varnish Guru Meditation intended for the former.
 # This seems to be a bug in either IO::Multiplex or Varnish::Test.
 #
-our @TESTS = qw(testPassPOST testCachePOST testPipePOST);
+our @TESTS = qw(testPipePOST testCachePOST testPassPOST);
 
 our $VCL = <<EOVCL;
 sub vcl_recv {
