@@ -67,6 +67,7 @@ sub testPassPOST($) {
 
     my $client = $self->new_client;
     $self->post($client, "/pass_me", [], $MAGIC_WORDS);
+    $self->wait();
     $self->assert_ok();
     $self->assert_xid();
     $self->assert_body(qr/\Q$MAGIC_WORDS\E/);
