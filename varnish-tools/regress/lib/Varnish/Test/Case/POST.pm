@@ -36,15 +36,6 @@ use base 'Varnish::Test::Case';
 our $DESCR = "Tests Varnish's ability to correctly pass POST requests" .
     " to the backend, and their replies back to the client.";
 
-# testCachePOST and testPassPOST are known to fail, and it is not
-# clear at this point whether that is a bug or a feature.
-#
-# More interestingly, if you run testPassPOST before testPipePOST, the
-# latter receives the Varnish Guru Meditation intended for the former.
-# This seems to be a bug in either IO::Multiplex or Varnish::Test.
-#
-our @TESTS = qw(testPipePOST testCachePOST testPassPOST);
-
 our $VCL = <<EOVCL;
 sub vcl_recv {
     if (req.request == "POST") {
@@ -113,6 +104,10 @@ sub testCachePOST($) {
 sub server_get($$$) {
     my ($self, $request, $response) = @_;
 
+    # Varnish will always use GET when fetching a presumably cacheable
+    # object from the backend.  This is not a bug.
+    goto &server_post
+	if ($request->uri =~ m/cache_me/);
     die "Got GET request instead of POST\n";
 }
 
