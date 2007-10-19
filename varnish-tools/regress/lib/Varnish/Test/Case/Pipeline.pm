@@ -91,7 +91,8 @@ sub server($$$) {
     my ($author) = ($request->uri =~ m/(\w+)$/);
     if ($CONTENT{$author}) {
 	if ($request->method eq 'POST') {
-	    die unless $request->content eq $CONTENT{$author} x $REPS;
+	    die "Not the content I expected\n"
+		unless $request->content eq $CONTENT{$author} x $REPS;
 	}
 	$response->content($CONTENT{$author});
     } else {
