@@ -41,7 +41,15 @@ our %CONTENT = (
     'Williams' => "I have always depended upon the kindness of strangers.",
 );
 
-sub testPipeline($) {
+our $VCL = <<EOVCL;
+sub vcl_recv {
+    if (req.request == "POST") {
+	pass;
+    }
+}
+EOVCL
+
+sub testPipelineGet($) {
     my ($self) = @_;
 
     my $client = $self->new_client;
@@ -58,11 +66,31 @@ sub testPipeline($) {
     return 'OK'
 }
 
-sub server_get($$$) {
+sub testPipelinePost($) {
+    my ($self) = @_;
+
+    my $client = $self->new_client;
+    foreach my $author (sort keys %CONTENT) {
+	$self->post($client, "/$author", [], $CONTENT{$author});
+    }
+    foreach my $author (sort keys %CONTENT) {
+	$self->wait();
+	$self->assert_ok();
+	$self->assert_xid();
+	$self->assert_body(qr/\Q$CONTENT{$author}\E/);
+    }
+
+    return 'OK'
+}
+
+sub server($$$) {
     my ($self, $request, $response) = @_;
 
     my ($author) = ($request->uri =~ m/(\w+)$/);
     if ($CONTENT{$author}) {
+	if ($request->method eq 'POST') {
+	    die unless $request->content =~ qr/\Q$CONTENT{$author}\E/;
+	}
 	$response->content($CONTENT{$author});
     } else {
 	$response->code(404);
