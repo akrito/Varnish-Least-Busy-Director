@@ -41,6 +41,8 @@ our %CONTENT = (
     'Williams' => "I have always depended upon the kindness of strangers.",
 );
 
+our $REPS = 4096;
+
 our $VCL = <<EOVCL;
 sub vcl_recv {
     if (req.request == "POST") {
@@ -71,7 +73,7 @@ sub testPipelinePost($) {
 
     my $client = $self->new_client;
     foreach my $author (sort keys %CONTENT) {
-	$self->post($client, "/$author", [], $CONTENT{$author});
+	$self->post($client, "/$author", [], $CONTENT{$author} x $REPS);
     }
     foreach my $author (sort keys %CONTENT) {
 	$self->wait();
@@ -89,7 +91,7 @@ sub server($$$) {
     my ($author) = ($request->uri =~ m/(\w+)$/);
     if ($CONTENT{$author}) {
 	if ($request->method eq 'POST') {
-	    die unless $request->content =~ qr/\Q$CONTENT{$author}\E/;
+	    die unless $request->content eq $CONTENT{$author} x $REPS;
 	}
 	$response->content($CONTENT{$author});
     } else {
