@@ -67,6 +67,20 @@ sub new($$) {
     return $self;
 }
 
+=head2 write
+
+Write data to the connection
+
+=cut
+
+sub write($@) {
+    my ($self, @data) = @_;
+
+    foreach my $data (@data) {
+	$self->{'mux'}->write($self->{'fh'}, $data);
+    }
+}
+
 =head2 send_response
 
 Called by test-cases to send a given HTTP::Response object out on the
