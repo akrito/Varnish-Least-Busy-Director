@@ -168,9 +168,8 @@ sub run($;@) {
 
     no strict 'refs';
     my @tests = @{ref($self)."::TESTS"};
-    if (!@tests) {
-	@tests = sort grep {/^test(\w+)/} (keys %{ref($self) . '::'});
-    }
+    @tests = sort grep {/^test(\w+)/} (keys %{ref($self) . '::'})
+	unless @tests;
     $self->{'start'} = [gettimeofday()];
     foreach my $method (@tests) {
 	eval {
