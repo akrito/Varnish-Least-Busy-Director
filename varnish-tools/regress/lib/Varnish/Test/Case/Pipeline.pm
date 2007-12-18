@@ -34,6 +34,7 @@ use strict;
 use base 'Varnish::Test::Case';
 
 our $DESCR = "Tests Varnish's ability to handle pipelined requests.";
+our $NOTES = "1.1.2 is expected to fail one of two subtests.";
 
 our %CONTENT = (
     'Gibson' => "The sky above the port was the color of television, tuned to a dead channel.",

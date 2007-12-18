@@ -232,9 +232,11 @@ sub results($) {
     no strict 'refs';
     my $name = ${ref($self)."::NAME"} || (split('::', ref($self)))[-1];
     my $descr = ${ref($self)."::DESCR"} || "N/A";
+    my $notes = ${ref($self)."::NOTES"} || "N/A";
     return {
 	'name' => $name,
 	'descr' => $descr,
+	'notes' => $notes,
 	'count' => $self->{'count'},
 	'pass' => $self->{'successful'},
 	'fail' => $self->{'failed'},

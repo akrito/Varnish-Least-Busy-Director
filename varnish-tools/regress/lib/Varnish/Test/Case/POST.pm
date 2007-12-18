@@ -35,6 +35,7 @@ use base 'Varnish::Test::Case';
 
 our $DESCR = "Tests Varnish's ability to correctly pass POST requests" .
     " to the backend, and their replies back to the client.";
+our $NOTES = "1.1.2 is expected to fail one of three subtests.";
 
 our $VCL = <<EOVCL;
 sub vcl_recv {

@@ -16,7 +16,8 @@ tr.fail { background-color: #ffeeee; }
 .pass { width: 5%; }
 .fail { width: 5%; }
 .time { width: 5%; text-align: right; }
-.descr { width: 70%; }
+.descr { width: 50%; }
+.notes { width: 20%; }
     </style>
   </head>
 <!-- USE ms = format('%5.3f') -->
@@ -31,6 +32,7 @@ tr.fail { background-color: #ffeeee; }
 	  <th class="fail">Fail</th>
 	  <th class="time">Time</th>
 	  <th class="descr">Description</th>
+	  <th class="notes">Notes</th>
 	</tr>
       </thead>
 <!-- FOREACH case = cases -->
@@ -45,6 +47,7 @@ tr.fail { background-color: #ffeeee; }
 	<td class="fail"><!-- case.fail --></td>
 	<td class="time"><!-- ms(case.time) --> s</td>
 	<td class="descr"><!-- case.descr --></td>
+	<td class="notes"><!-- case.notes --></td>
       </tr>
 <!-- END -->
       <tfoot>
@@ -55,6 +58,7 @@ tr.fail { background-color: #ffeeee; }
 	  <td class="fail"><!-- fail --></td>
 	  <td class="time"><!-- ms(time) --> s</td>
 	  <td class="descr">&nbsp;</td>
+	  <td class="notes">&nbsp;</td>
 	</tr>
       </tfoot>
     </table>
