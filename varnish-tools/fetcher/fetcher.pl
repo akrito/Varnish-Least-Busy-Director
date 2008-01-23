@@ -38,6 +38,7 @@ use LWP::UserAgent;
 use Socket;
 use URI;
 
+our %BANNED;
 our %TODO;
 our %DONE;
 our %CHILD;
@@ -69,6 +70,7 @@ sub run($$) {
 
     my $check = 1;
     my $ua = new LWP::UserAgent('keep_alive' => 3);
+    $ua->requests_redirectable([]);
     for (;;) {
 	$0 = "[fetcher] idle";
 	my $url = <$s>;
@@ -85,18 +87,29 @@ sub run($$) {
 	    next;
 	}
 	$0 = "[fetcher] requesting $url";
-	print STDERR "Retrieving $url\n"
+	print(STDERR "Retrieving $url\n")
 	    unless ($quiet > 1);
 	my $resp = $ua->get($url);
 	if ($check) {
 	    $0 = "[fetcher] checking $url";
-	    # XXX if we got a redirect, we should blacklist the
-	    # original URL and suggest the target URL instead
-	    if ($resp->header('Content-Type') =~ m/^text\//) {
-		my %urls = map { $_ => 1 } ($resp->content =~ m/$url_re/g);
-		foreach (keys(%urls)) {
-		    $s->write("add $_\n");
+	    if ($resp->is_redirect()) {
+		$s->write("ban $url\n");
+		$url = $resp->header('Location') //
+		    $resp->header('Content-Location');
+		$s->write("add $url\n")
+		    if $url;
+	    } elsif ($resp->is_success()) {
+		if ($resp->header('Content-Type') =~ m/^text\//) {
+		    my %urls = map { $_ => 1 } ($resp->content =~ m/$url_re/g);
+		    foreach (keys(%urls)) {
+			$s->write("add $_\n");
+		    }
 		}
+	    } elsif ($resp->is_error()) {
+		# XXX should we ban these?
+	    } else {
+		print(STDERR "Unsupported response type:",
+		    $resp->status_line(), "\n");
 	    }
 	}
 	select(undef, undef, undef, $delay)
@@ -131,6 +144,18 @@ sub send_url($) {
     ++$BUSY;
 }
 
+# Convert relative to absolute and add to blacklist
+sub ban_url($$) {
+    my ($child, $url) = @_;
+
+    die "child not busy\n"
+	unless $child->{'url'};
+    my $uri = URI->new_abs($1, $child->{'url'});
+    $url = $uri->canonical;
+    $BANNED{$url} = 1;
+    print(STDERR "Banned $url\n");
+}
+
 # Convert relative to absolute, check if valid, and add to list
 sub get_url($$) {
     my ($child, $url) = @_;
@@ -139,9 +164,10 @@ sub get_url($$) {
 	unless $child->{'url'};
     my $uri = URI->new_abs($1, $child->{'url'});
     $url = $uri->canonical;
-    if ($uri->scheme() ne 'http' ||
+    # XXX should cache child URI to avoid new() here
+    if ($BANNED{$url} || $uri->scheme() ne 'http' ||
 	$uri->host_port() ne URI->new($child->{'url'})->host_port()) {
-	print STDERR "Rejected $url\n"
+	print(STDERR "Rejected $url\n")
 	    unless ($quiet > 0);
 	return;
     }
@@ -164,6 +190,8 @@ sub mux_input($$$$) {
 	    $mux->endloop();
 	} elsif ($line =~ m/^add (.*?)$/) {
 	    get_url($child, $1);
+	} elsif ($line =~ m/^ban (.*?)$/) {
+	    ban_url($child, $1);
 	} else {
 	    die "can't grok [$line]\n";
 	}
@@ -218,7 +246,7 @@ sub fetcher(@) {
 	}
 	%TODO = %DONE;
 	%DONE = ();
-	print STDERR "Starting over...\n";
+	print(STDERR "Starting over...\n");
     }
 
     # done
@@ -236,7 +264,7 @@ sub refetch() {
 
 sub usage() {
 
-    print STDERR "usage: $0 [-cqr] [-d n] [-j n] URL ...\n";
+    print(STDERR "usage: $0 [-cqr] [-d n] [-j n] URL ...\n");
     exit(1);
 }
 
