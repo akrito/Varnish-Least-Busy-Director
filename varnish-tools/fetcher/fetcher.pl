@@ -43,8 +43,14 @@ our %DONE;
 our %CHILD;
 our $BUSY;
 
-our $jobs = 1;
+our $continue = 0;
 our $delay = 0;
+our $jobs = 1;
+our $quiet = 0;
+our $random = 0;
+
+our $url_re =
+    qr/\b(?:href|src)=[\'\"]([^\'\"\?\#]+)(?:[\?\#][^\'\"]*)?[\'\"]/io;
 
 sub new($$) {
     my ($this, $mux, $fh) = @_;
@@ -57,27 +63,40 @@ sub new($$) {
     };
 }
 
+# Child
 sub run($$) {
     my ($self, $s) = @_;
 
-    my $ua = new LWP::UserAgent();
+    my $check = 1;
+    my $ua = new LWP::UserAgent('keep_alive' => 3);
     for (;;) {
 	$0 = "[fetcher] idle";
 	my $url = <$s>;
 	exit(0)
 	    unless defined($url);
 	chomp($url);
-	die "no more work\n"
-	    if $url eq "done";
+	if ($url eq "done") {
+	    last;
+	} elsif ($url eq "check") {
+	    $check = 1;
+	    next;
+	} elsif ($url eq "no check") {
+	    $check = 0;
+	    next;
+	}
 	$0 = "[fetcher] requesting $url";
-	print STDERR "Retrieving $url\n";
+	print STDERR "Retrieving $url\n"
+	    unless ($quiet > 1);
 	my $resp = $ua->get($url);
-	$0 = "[fetcher] checking $url";
-	if ($resp->header('Content-Type') =~ m/^text\//) {
-	    my %urls = map { $_ => 1 }
-		($resp->content =~ m/\b(?:href|src)=[\'\"]([^\'\"\?\#]+)(?:[\?\#][^\'\"]*)?[\'\"]/g);
-	    foreach (keys(%urls)) {
-		$s->write("add $_\n");
+	if ($check) {
+	    $0 = "[fetcher] checking $url";
+	    # XXX if we got a redirect, we should blacklist the
+	    # original URL and suggest the target URL instead
+	    if ($resp->header('Content-Type') =~ m/^text\//) {
+		my %urls = map { $_ => 1 } ($resp->content =~ m/$url_re/g);
+		foreach (keys(%urls)) {
+		    $s->write("add $_\n");
+		}
 	    }
 	}
 	select(undef, undef, undef, $delay)
@@ -87,6 +106,16 @@ sub run($$) {
     }
 }
 
+# Send a command for which we don't expect a response
+sub send($) {
+    my ($child, $msg) = @_;
+
+    die "child busy\n"
+	if $child->{'url'};
+    $child->{'mux'}->write($child->{'fh'}, "$msg\n");
+}
+
+# Send a URL and mark the child as busy
 sub send_url($) {
     my ($child) = @_;
 
@@ -102,6 +131,7 @@ sub send_url($) {
     ++$BUSY;
 }
 
+# Convert relative to absolute, check if valid, and add to list
 sub get_url($$) {
     my ($child, $url) = @_;
 
@@ -111,13 +141,15 @@ sub get_url($$) {
     $url = $uri->canonical;
     if ($uri->scheme() ne 'http' ||
 	$uri->host_port() ne URI->new($child->{'url'})->host_port()) {
-	print STDERR "Rejected $url\n";
+	print STDERR "Rejected $url\n"
+	    unless ($quiet > 0);
 	return;
     }
     return if $TODO{$url} || $DONE{$url};
     $TODO{$url} = 1;
 }
 
+# Called when mux gets data from a client
 sub mux_input($$$$) {
     my ($child, $mux, $fh, $input) = @_;
 
@@ -172,32 +204,53 @@ sub fetcher(@) {
 
     # main loop
     for (;;) {
-	foreach my $child (values(%CHILD)) {
-	    $child->send_url()
-		unless $child->{'url'};
+	for (;;) {
+	    foreach my $child (values(%CHILD)) {
+		$child->send_url()
+		    unless $child->{'url'};
+	    }
+	    last unless $BUSY;
+	    $mux->loop();
 	}
-	last unless $BUSY;
-	$mux->loop();
+	last unless $continue;
+	foreach my $child (values(%CHILD)) {
+	    $child->send("no check");
+	}
+	%TODO = %DONE;
+	%DONE = ();
+	print STDERR "Starting over...\n";
     }
 
     # done
     foreach my $child (values(%CHILD)) {
+	$child->send("done");
 	$mux->close($$child{'fh'});
     }
 }
 
+sub refetch() {
+
+    # Recycle valid URLs from initial run
+    %TODO = %DONE;
+}
+
 sub usage() {
 
-    print STDERR "usage: $0 [-d n] [-j n] URL ...\n";
+    print STDERR "usage: $0 [-cqr] [-d n] [-j n] URL ...\n";
     exit(1);
 }
 
 MAIN:{
-    GetOptions("j|jobs=i" => \$jobs,
-	       "d|delay=i" => \$delay)
+    GetOptions("c|continue" => \$continue,
+	       "d|delay=i" => \$delay,
+	       "j|jobs=i" => \$jobs,
+	       "q|quiet+" => \$quiet,
+	       "r|random" => \$random)
 	or usage();
     $jobs > 0
 	or usage();
+    $random
+	and die "-r is not yet implemented\n";
     @ARGV
 	or usage();
     fetcher(@ARGV);
