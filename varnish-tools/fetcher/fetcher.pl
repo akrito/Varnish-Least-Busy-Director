@@ -3,6 +3,8 @@
 # Copyright (c) 2007 Linpro AS
 # All rights reserved.
 #
+# Author: Dag-Erling Smørgrav <des@linpro.no>
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -28,14 +30,17 @@
 # $Id$
 #
 
+our $VERSION = '$Id$';
+
 package Varnish::Fetcher;
 
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config bundling require_order auto_version);
 use IO::Handle;
 use IO::Multiplex;
 use LWP::UserAgent;
 use Socket;
+use Time::HiRes qw(gettimeofday tv_interval);
 use URI;
 
 our %BANNED;
@@ -50,8 +55,12 @@ our $jobs = 1;
 our $quiet = 0;
 our $random = 0;
 
-our $url_re =
-    qr/\b(?:href|src)=[\'\"]([^\'\"\?\#]+)(?:[\?\#][^\'\"]*)?[\'\"]/io;
+our $url_re = qr{
+    \b(?:href|src)=[\'\"]\s*
+	([^\'\"\?\#]+)		# capture URL
+	(?:[\?\#][^\'\"]*)?	# discard fragment / query
+	\s*[\'\"]
+    }iox;
 
 sub new($$) {
     my ($this, $mux, $fh) = @_;
@@ -94,7 +103,7 @@ sub run($$) {
 	    $0 = "[fetcher] checking $url";
 	    if ($resp->is_redirect()) {
 		$s->write("ban $url\n");
-		$url = $resp->header('Location') //
+		$url = $resp->header('Location') ||
 		    $resp->header('Content-Location');
 		$s->write("add $url\n")
 		    if $url;
@@ -124,8 +133,8 @@ sub send($) {
     my ($child, $msg) = @_;
 
     die "child busy\n"
-	if $child->{'url'};
-    $child->{'mux'}->write($child->{'fh'}, "$msg\n");
+	if $$child{'url'};
+    $$child{'fh'}->write("$msg\n");
 }
 
 # Send a URL and mark the child as busy
@@ -133,14 +142,14 @@ sub send_url($) {
     my ($child) = @_;
 
     die "child busy\n"
-	if $child->{'url'};
+	if $$child{'url'};
     return undef
 	unless (keys(%TODO));
     my $url = (keys(%TODO))[0];
+    $DONE{$url} = $TODO{$url};
     delete $TODO{$url};
-    $DONE{$url} = 1;
-    $child->{'url'} = $url;
-    $child->{'mux'}->write($child->{'fh'}, "$url\n");
+    $$child{'url'} = $url;
+    $$child{'fh'}->write("$url\n");
     ++$BUSY;
 }
 
@@ -149,11 +158,14 @@ sub ban_url($$) {
     my ($child, $url) = @_;
 
     die "child not busy\n"
-	unless $child->{'url'};
-    my $uri = URI->new_abs($1, $child->{'url'});
+	unless $$child{'url'};
+    my $uri = URI->new_abs($1, $$child{'url'});
     $url = $uri->canonical;
     $BANNED{$url} = 1;
-    print(STDERR "Banned $url\n");
+    delete $TODO{$url};
+    delete $DONE{$url};
+    print(STDERR "Banned $url\n")
+	unless ($quiet > 2);
 }
 
 # Convert relative to absolute, check if valid, and add to list
@@ -161,12 +173,12 @@ sub get_url($$) {
     my ($child, $url) = @_;
 
     die "child not busy\n"
-	unless $child->{'url'};
-    my $uri = URI->new_abs($1, $child->{'url'});
+	unless $$child{'url'};
+    my $uri = URI->new_abs($1, $$child{'url'});
     $url = $uri->canonical;
     # XXX should cache child URI to avoid new() here
     if ($BANNED{$url} || $uri->scheme() ne 'http' ||
-	$uri->host_port() ne URI->new($child->{'url'})->host_port()) {
+	$uri->host_port() ne URI->new($$child{'url'})->host_port()) {
 	print(STDERR "Rejected $url\n")
 	    unless ($quiet > 0);
 	return;
@@ -232,27 +244,41 @@ sub fetcher(@) {
 
     # main loop
     for (;;) {
+	my $t0 = [gettimeofday()];
+
+	# keep dispatching URLs until we're done
 	for (;;) {
 	    foreach my $child (values(%CHILD)) {
 		$child->send_url()
-		    unless $child->{'url'};
+		    unless $$child{'url'};
 	    }
+	    printf(STDERR " %d/%d \r", int(keys(%DONE)),
+		   int(keys(%DONE)) + int(keys(%TODO)))
+		unless ($quiet > 3);
 	    last unless $BUSY;
 	    $mux->loop();
 	}
+
+	# summarize
+	my $dt = tv_interval($t0, [gettimeofday()]);
+	my $count = int(keys(%DONE)) + int(keys(%BANNED));
+	printf(STDERR "retrieved %d documents in %.2f seconds - %.2f tps\n",
+	       $count, $dt, $count / $dt)
+	    unless ($quiet > 3);
+
 	last unless $continue;
 	foreach my $child (values(%CHILD)) {
 	    $child->send("no check");
 	}
+	%BANNED = ();
 	%TODO = %DONE;
 	%DONE = ();
-	print(STDERR "Starting over...\n");
     }
 
     # done
     foreach my $child (values(%CHILD)) {
 	$child->send("done");
-	$mux->close($$child{'fh'});
+	$$child{'fh'}->close();
     }
 }
 
@@ -269,11 +295,11 @@ sub usage() {
 }
 
 MAIN:{
-    GetOptions("c|continue" => \$continue,
+    GetOptions("c|continue!" => \$continue,
 	       "d|delay=i" => \$delay,
 	       "j|jobs=i" => \$jobs,
 	       "q|quiet+" => \$quiet,
-	       "r|random" => \$random)
+	       "r|random!" => \$random)
 	or usage();
     $jobs > 0
 	or usage();
