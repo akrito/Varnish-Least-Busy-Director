@@ -31,6 +31,9 @@
 ;;; $Id$
 ;;;
 
+(defconst vcl-indent-level 8
+  "The level of indentation (number of space characters) in VCL-mode.")
+
 ;; I just love standards, there are so many to choose from
 (if (string-match "XEmacs\\|Lucid" emacs-version)
     (require 'generic-mode)
@@ -145,9 +148,8 @@
   (modify-syntax-entry ?. "w")
 
   ;; C++-style comments
-  (modify-syntax-entry ?/ ". 124b")
+  (modify-syntax-entry ?/ ". 124")
   (modify-syntax-entry ?* ". 23b")
-  (modify-syntax-entry ?\n ">b")
 
   ;; Perl-style comments
   (modify-syntax-entry ?# "<")
@@ -158,8 +160,6 @@
   )
 
 (defvar vcl-mode-hook nil)
-
-(defconst vcl-indent-level 2 "The indentation in VCL-mode")
 
 (defun vcl-indent-line ()
   "Indent the current VCL line according to syntax."
@@ -175,25 +175,24 @@
   "Return the column to which the current line should be indented."
   (interactive)
   (save-excursion
+                                        ; Do not indent the first line.
+    (if (vcl-first-line-p) 0
                                         ; Reduce indent level if we
                                         ; close a block on this line
-    (if (vcl-closing-tag-on-this-line-p)
-        (- (vcl-previous-line-indentation)
-           vcl-indent-level)
+      (if (vcl-closing-tag-on-this-line-p)
+          (- (vcl-previous-line-indentation)
+             vcl-indent-level)
                                         ; Increase indent level if a
                                         ; block opened on the previous
                                         ; line
-      (if (vcl-opening-tag-on-previous-line-p)
-          (+ (vcl-previous-line-indentation)
-             vcl-indent-level)
-					; Do not indent empty lines
-	(if (vcl-empty-line-p)
-	    0
+        (if (vcl-opening-tag-on-previous-line-p)
+            (+ (vcl-previous-line-indentation)
+               vcl-indent-level)
                                         ; By default, indent to the
                                         ; level of the previous
                                         ; non-empty line
           (vcl-previous-line-indentation))))))
-  
+
 (defun vcl-opening-tag-on-previous-line-p ()
   "Checks if we have an opening tag on the previous line."
   (interactive)
@@ -213,7 +212,7 @@
     (looking-at "}")))
 
 (defun vcl-previous-line-indentation ()
-  "Return the column to which the current line should be indented."
+  "Return the indent level of the previous line."
   (interactive)
   (save-excursion
     (beginning-of-line)
@@ -228,17 +227,11 @@
     (beginning-of-line)
     (looking-at "^[ \t]*#")))
 
-(defun vcl-empty-line-p ()
-  "Checks if we have an empty line."
+(defun vcl-first-line-p ()
+  "Checks if we are on the first line."
   (interactive)
   (save-excursion
     (beginning-of-line)
-    (looking-at "^[ \t]*$")))
+    (eq (point) 1)))
 
-(defun vcl-newline-and-indent ()
-  "Insert a newline, updating indentation."
-  (interactive)
-  (save-excursion
-    (vcl-indent-line))
-  (call-interactively 'newline-and-indent))
-
+(provide 'vcl-mode)
