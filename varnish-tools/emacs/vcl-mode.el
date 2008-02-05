@@ -1,0 +1,244 @@
+;;; vcl-mode.el - Syntax highlighting for Varnish Command Language
+;;; 
+;;; Copyright (c) 2008 Linpro AS
+;;; All rights reserved.
+;;;
+;;; Author: Stig Sandbeck Mathisen <ssm@linpro.no>
+;;;
+;;; Redistribution and use in source and binary forms, with or without
+;;; modification, are permitted provided that the following conditions
+;;; are met:
+;;; 1. Redistributions of source code must retain the above copyright
+;;;    notice, this list of conditions and the following disclaimer.
+;;; 2. Redistributions in binary form must reproduce the above
+;;;    copyright notice, this list of conditions and the following
+;;;    disclaimer in the documentation and/or other materials provided
+;;;    with the distribution.
+;;;
+;;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
+;;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+;;; TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+;;; PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR
+;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+;;; LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+;;; USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+;;; AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+;;; LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+;;; ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;;; POSSIBILITY OF SUCH DAMAGE.
+;;;
+;;; $Id$
+;;;
+
+;; I just love standards, there are so many to choose from
+(if (string-match "XEmacs\\|Lucid" emacs-version)
+    (require 'generic-mode)
+  (require 'generic))
+
+;; Add a VCL major mode called "vcl-mode", based on generic-mode
+
+(define-generic-mode 'vcl-mode
+  ;; comments (defined in "vcl-mode-setup-function"
+  nil
+  ;; keywords (defined under "others" instead)
+  nil
+  ;; others
+  (list
+   ;; Logic
+   (generic-make-keywords-list
+    (list
+     "else"
+     "elsif"
+     "if"
+     "remove"
+     "set"
+     )
+    'font-lock-keyword-face)
+   
+   ;; Types
+   (generic-make-keywords-list
+    (list
+     "purge_url"
+     "regsub"
+     )
+    'font-lock-builtin-face)
+   
+   ;; VCL Functions
+   (generic-make-keywords-list
+    (list
+     "acl"
+     "backend"
+     "sub"
+     "vcl_deliver"
+     "vcl_discard"
+     "vcl_hash"
+     "vcl_hit"
+     "vcl_miss"
+     "vcl_pass"
+     "vcl_pipe"
+     "vcl_recv"
+     "vcl_timeout"
+     )
+    'font-lock-function-name-face)
+   
+   ;; Actions
+   (generic-make-keywords-list
+    (list
+     "deliver"
+     "discard"
+     "error"
+     "fetch"
+     "hash"
+     "keep"
+     "lookup"
+     "pass"
+     "pipe"
+     )
+    'font-lock-function-name-face)
+
+   ;; Variables
+   (generic-make-keywords-list
+    (list
+     "backend.host"
+     "backend.port"
+     "bereq.proto"
+     "bereq.request"
+     "bereq.url"
+     "client.ip"
+     "now"
+     "obj.cacheable"
+     "obj.lastuse"
+     "obj.proto"
+     "obj.response"
+     "obj.status"
+     "obj.ttl"
+     "obj.valid"
+     "req.backend"
+     "req.hash"
+     "req.proto"
+     "req.request"
+     "req.url"
+     "resp.proto"
+     "resp.response"
+     "resp.status"
+     "server.ip"
+     )
+    'font-lock-variable-name-face)
+
+   ;; More variables
+   '("\\(\\(be\\)?req\\|resp\\|obj\\)\.http\.[A-Za-z-]+" .
+     font-lock-variable-name-face))
+  
+  ;; Filenames to highlight
+  '("\\.vcl\\'")
+  (list 'vcl-mode-setup-function)
+  "Mode for Varnish Command Language")
+
+
+;; A function to modify syntax, add a hook if needed, and setup
+;; indentation.
+
+(defun vcl-mode-setup-function ()
+  ;; These are "part of words"
+  (modify-syntax-entry ?_ "w")
+  (modify-syntax-entry ?. "w")
+
+  ;; C++-style comments
+  (modify-syntax-entry ?/ ". 124b")
+  (modify-syntax-entry ?* ". 23b")
+  (modify-syntax-entry ?\n ">b")
+
+  ;; Perl-style comments
+  (modify-syntax-entry ?# "<")
+  (modify-syntax-entry ?\n ">")
+  
+  (run-hooks 'vcl-mode-hook)
+  (set (make-local-variable 'indent-line-function) 'vcl-indent-line)  
+  )
+
+(defvar vcl-mode-hook nil)
+
+(defconst vcl-indent-level 2 "The indentation in VCL-mode")
+
+(defun vcl-indent-line ()
+  "Indent the current VCL line according to syntax."
+  (interactive)
+  (indent-line-to
+   (max (vcl-calculate-indentation) 0)))
+  
+
+;; The function to calculate indentation level.  This is a really
+;; simple and naive function, and does not perform anything like a
+;; syntax check.
+(defun vcl-calculate-indentation ()
+  "Return the column to which the current line should be indented."
+  (interactive)
+  (save-excursion
+                                        ; Reduce indent level if we
+                                        ; close a block on this line
+    (if (vcl-closing-tag-on-this-line-p)
+        (- (vcl-previous-line-indentation)
+           vcl-indent-level)
+                                        ; Increase indent level if a
+                                        ; block opened on the previous
+                                        ; line
+      (if (vcl-opening-tag-on-previous-line-p)
+          (+ (vcl-previous-line-indentation)
+             vcl-indent-level)
+					; Do not indent empty lines
+	(if (vcl-empty-line-p)
+	    0
+                                        ; By default, indent to the
+                                        ; level of the previous
+                                        ; non-empty line
+          (vcl-previous-line-indentation))))))
+  
+(defun vcl-opening-tag-on-previous-line-p ()
+  "Checks if we have an opening tag on the previous line."
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (skip-chars-backward " \t\n")
+    (beginning-of-line)
+    (if (and (looking-at ".*{[ \t]*$")
+             (not (vcl-comment-p)))
+        t)))
+
+(defun vcl-closing-tag-on-this-line-p ()
+  "Checks if we have a closing tag on this line."
+  (interactive)
+  (save-excursion
+    (back-to-indentation)
+    (looking-at "}")))
+
+(defun vcl-previous-line-indentation ()
+  "Return the column to which the current line should be indented."
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (skip-chars-backward " \t\n")
+    (back-to-indentation)
+    (current-column)))
+
+(defun vcl-comment-p ()
+  "Checks if we have a commented line."
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (looking-at "^[ \t]*#")))
+
+(defun vcl-empty-line-p ()
+  "Checks if we have an empty line."
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (looking-at "^[ \t]*$")))
+
+(defun vcl-newline-and-indent ()
+  "Insert a newline, updating indentation."
+  (interactive)
+  (save-excursion
+    (vcl-indent-line))
+  (call-interactively 'newline-and-indent))
+
