@@ -31,8 +31,16 @@
 ;;; $Id$
 ;;;
 
-(defconst vcl-indent-level 8
-  "The level of indentation (number of space characters) in VCL-mode.")
+(defgroup vcl nil
+  "Customizations for vcl-mode")
+
+(defcustom vcl-indent-level 8
+  "*The level of indentation (number of space characters) in VCL-mode."
+  :type 'integer  :group 'vcl)
+
+(defcustom vcl-indent-tabs-mode nil
+  "*Allow tabs when indentation in vcl-mode if non-nil"
+  :type 'boolean :group 'vcl)
 
 ;; I just love standards, there are so many to choose from
 (if (string-match "XEmacs\\|Lucid" emacs-version)
@@ -158,6 +166,7 @@
   
   (run-hooks 'vcl-mode-hook)
   (set (make-local-variable 'indent-line-function) 'vcl-indent-line)  
+  (setq indent-tabs-mode vcl-indent-tabs-mode)
   )
 
 (defvar vcl-mode-hook nil)
