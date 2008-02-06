@@ -75,6 +75,7 @@
      "sub"
      "vcl_deliver"
      "vcl_discard"
+     "vcl_fetch"
      "vcl_hash"
      "vcl_hit"
      "vcl_miss"
