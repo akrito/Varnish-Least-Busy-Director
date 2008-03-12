@@ -43,11 +43,12 @@ use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use URI;
 
+our %URLS;
 our %BANNED;
-our %TODO;
-our %DONE;
+our @TODO;
 our %CHILD;
 our $BUSY;
+our $DONE;
 
 our $continue = 0;
 our $delay = 0;
@@ -144,10 +145,8 @@ sub send_url($) {
     die "child busy\n"
 	if $$child{'url'};
     return undef
-	unless (keys(%TODO));
-    my $url = (keys(%TODO))[0];
-    $DONE{$url} = $TODO{$url};
-    delete $TODO{$url};
+	unless (@TODO);
+    my $url = shift(@TODO);
     $$child{'url'} = $url;
     $$child{'fh'}->write("$url\n");
     ++$BUSY;
@@ -162,8 +161,7 @@ sub ban_url($$) {
     my $uri = URI->new_abs($1, $$child{'url'});
     $url = $uri->canonical;
     $BANNED{$url} = 1;
-    delete $TODO{$url};
-    delete $DONE{$url};
+    delete $URLS{$url};
     print(STDERR "Banned $url\n")
 	unless ($quiet > 2);
 }
@@ -183,8 +181,9 @@ sub get_url($$) {
 	    unless ($quiet > 0);
 	return;
     }
-    return if $TODO{$url} || $DONE{$url};
-    $TODO{$url} = 1;
+    return if $URLS{$url};
+    $URLS{$url} = 1;
+    push(@TODO, $url);
 }
 
 # Called when mux gets data from a client
@@ -199,6 +198,7 @@ sub mux_input($$$$) {
 	if ($line eq "ready") {
 	    $$child{'url'} = '';
 	    --$BUSY;
+	    ++$DONE;
 	    $mux->endloop();
 	} elsif ($line =~ m/^add (.*?)$/) {
 	    get_url($child, $1);
@@ -210,15 +210,9 @@ sub mux_input($$$$) {
     }
 }
 
-sub fetcher(@) {
-    my (@urls) = @_;
+my $mux = new IO::Multiplex;
 
-    my $mux = new IO::Multiplex;
-
-    # prepare work queue
-    foreach my $url (@urls) {
-	$TODO{URI->new($url)->canonical} = 1;
-    }
+sub breed() {
 
     # start children
     $BUSY = 0;
@@ -241,51 +235,115 @@ sub fetcher(@) {
 	    $mux->set_callback_object($child, $s1);
 	}
     }
+}
 
-    # main loop
-    for (;;) {
-	my $t0 = [gettimeofday()];
+sub infanticide() {
 
-	# keep dispatching URLs until we're done
-	for (;;) {
-	    foreach my $child (values(%CHILD)) {
-		$child->send_url()
-		    unless $$child{'url'};
-	    }
-	    printf(STDERR " %d/%d \r", int(keys(%DONE)),
-		   int(keys(%DONE)) + int(keys(%TODO)))
-		unless ($quiet > 3);
-	    last unless $BUSY;
-	    $mux->loop();
-	}
-
-	# summarize
-	my $dt = tv_interval($t0, [gettimeofday()]);
-	my $count = int(keys(%DONE)) + int(keys(%BANNED));
-	printf(STDERR "retrieved %d documents in %.2f seconds - %.2f tps\n",
-	       $count, $dt, $count / $dt)
-	    unless ($quiet > 3);
-
-	last unless $continue;
-	foreach my $child (values(%CHILD)) {
-	    $child->send("no check");
-	}
-	%BANNED = ();
-	%TODO = %DONE;
-	%DONE = ();
-    }
-
-    # done
     foreach my $child (values(%CHILD)) {
 	$child->send("done");
 	$$child{'fh'}->close();
     }
 }
 
-sub refetch() {
+sub harvest(@) {
+    my (@urls) = @_;
 
-    # Recycle valid URLs from initial run
-    %TODO = %DONE;
+    # prepare work queue
+    foreach my $url (@urls) {
+	push(@TODO, URI->new($url)->canonical);
+    }
+
+    $DONE = 0;
+    for (;;) {
+	foreach my $child (values(%CHILD)) {
+	    $child->send_url()
+		unless $$child{'url'};
+	}
+	printf(STDERR " %d/%d \r",
+	       int(keys(%URLS)) - @TODO, int(keys(%URLS)))
+	    unless ($quiet > 3);
+	last unless $BUSY;
+	$mux->loop();
+    }
+}
+
+sub summarize($$$) {
+    my ($count, $t0, $t1) = @_;
+
+    my $dt = tv_interval($t0, $t1);
+    printf(STDERR "retrieved %d documents in %.2f seconds - %.2f tps\n",
+	   $count, $dt, $count / $dt)
+	unless ($quiet > 3);
+}
+
+sub fetch_random() {
+
+    my $t0 = [gettimeofday()];
+    my @urls = keys(%URLS);
+    @TODO = @urls;
+    $DONE = 0;
+
+    while (@TODO) {
+	foreach my $child (values(%CHILD)) {
+	    $child->send_url()
+		unless $$child{'url'};
+	    push(@TODO, $urls[rand(@urls)]);
+	}
+	$mux->loop();
+	printf(STDERR " %d \r", $DONE)
+	    unless ($quiet > 3);
+	if ($DONE > 0 && ($DONE % 1000) == 0) {
+	    my $t1 = [gettimeofday()];
+	    summarize(1000, $t0, $t1);
+	    $t0 = $t1;
+	}
+    }
+}
+
+sub fetch_sequential() {
+
+    my $t0 = [gettimeofday()];
+    for (;;) {
+	@TODO = keys(%URLS);
+	$DONE = 0;
+
+	while (@TODO) {
+	    foreach my $child (values(%CHILD)) {
+		$child->send_url()
+		    unless $$child{'url'};
+	    }
+	    printf(STDERR " %d/%d \r", $DONE, int(keys(%URLS)))
+		unless ($quiet > 3);
+	    last unless $BUSY;
+	    $mux->loop();
+	}
+	my $t1 = [gettimeofday()];
+	summarize(int(keys(%URLS)), $t0, $t1);
+	$t0 = $t1;
+    }
+}
+
+sub fetcher(@) {
+    my (@urls) = @_;
+
+    breed();
+
+    my $t0 = [gettimeofday()];
+    harvest(@urls);
+    my $t1 = [gettimeofday()];
+    summarize(int(keys(%URLS)), $t0, $t1);
+
+    foreach my $child (values(%CHILD)) {
+	$child->send("no check");
+    }
+
+    if ($random) {
+	fetch_random();
+    } elsif ($continue) {
+	fetch_sequential();
+    }
+
+    infanticide();
 }
 
 sub usage() {
@@ -303,8 +361,6 @@ MAIN:{
 	or usage();
     $jobs > 0
 	or usage();
-    $random
-	and die "-r is not yet implemented\n";
     @ARGV
 	or usage();
     fetcher(@ARGV);
