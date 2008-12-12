@@ -1,0 +1,89 @@
+<script type="text/javascript">
+function toggleHelp(sectionId) {
+
+	var sectionStyle = document.getElementById(sectionId).style;
+	if (sectionStyle.display == "none") {
+		sectionStyle.display = "block";
+	}
+	else {
+		sectionStyle.display = "none";
+	}
+}
+</script>
+
+<TMPL_IF NAME=UNIT_INFOS>
+<form action="configure_parameters" method="POST">
+<div class="tabHeader">
+<TMPL_LOOP NAME=UNIT_INFOS>
+<TMPL_IF NAME=SELECTED>
+<span class="selectedTab">
+<TMPL_IF NAME=IS_NODE>
+<input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>"/>
+<TMPL_ELSE>
+<input type="hidden" name="group" value="<TMPL_VAR NAME=ID>"/>
+</TMPL_IF>
+<TMPL_ELSE>
+<span class="tab">
+</TMPL_IF>
+<TMPL_IF NAME=IS_NODE>
+<a href="configure_parameters?node_id=<TMPL_VAR NAME=ID>"><TMPL_VAR NAME=NAME> (node)</a>
+<TMPL_ELSE>
+<a href="configure_parameters?group=<TMPL_VAR NAME=ID>"><TMPL_VAR NAME=NAME> (group)</a>
+</TMPL_IF>
+</span>
+</TMPL_LOOP>
+</div>
+<div class="tabArea">
+<table id="parameters">
+<tr><td class="header">Name</td><td class="header">Value</td><td class="header">Unit</td><td class="header"></td></tr>
+<TMPL_LOOP NAME=PARAMETER_INFOS>
+<TMPL_IF NAME=ODD_ROW>
+<tr class="oddRow">
+<TMPL_ELSE>
+<tr class="evenRow">
+</TMPL_IF>
+<td class="parameterLabel"><TMPL_VAR NAME=NAME></td>
+<td class="parameterValue">
+<TMPL_IF NAME=IS_BOOLEAN>
+<select name="new_<TMPL_VAR NAME=NAME>">
+<TMPL_IF NAME=VALUE>
+<option value="on" selected>on</option>
+<option value="off">off</option>
+<TMPL_ELSE>
+<option value="on">on</option>
+<option value="off" selected>off</option>
+</TMPL_IF>
+</select>
+<TMPL_ELSE>
+<input type="text" name="new_<TMPL_VAR NAME=NAME>" value="<TMPL_VAR NAME=VALUE>"/>
+</TMPL_IF>
+
+<TMPL_IF NAME=IS_BOOLEAN>
+<TMPL_IF NAME=VALUE>
+<input type="hidden" name="old_<TMPL_VAR NAME=NAME>" value="on"/>
+<TMPL_ELSE>
+<input type="hidden" name="old_<TMPL_VAR NAME=NAME>" value="off"/>
+</TMPL_IF>
+<TMPL_ELSE>
+<input type="hidden" name="old_<TMPL_VAR NAME=NAME>" value="<TMPL_VAR NAME=VALUE>"/>
+</TMPL_IF>
+
+</td>
+<td class="parameterUnit"><TMPL_VAR NAME=UNIT></td>
+<td class="parameterDescription">
+<a href="javascript:toggleHelp('<TMPL_VAR NAME=NAME>');">?</a>
+<div id="<TMPL_VAR NAME=NAME>" style="display: none">
+<TMPL_VAR NAME=DESCRIPTION>
+</div>
+</td>
+</tr>
+</TMPL_LOOP>
+<tr><td class="footer" colspan="4">
+<input type="submit" value="Update"/>
+</td></tr>
+</form>
+</table>
+</div>
+<TMPL_ELSE>
+No nodes available
+</TMPL_IF>

@@ -1,0 +1,138 @@
+<div class="tabHeader">
+<TMPL_LOOP NAME=GROUP_INFOS>
+<TMPL_IF NAME=SELECTED>
+<span class="selectedTab">
+<TMPL_ELSE>
+<span class="tab">
+</TMPL_IF>
+<a href="node_management?group=<TMPL_VAR NAME=NAME>"><TMPL_VAR NAME=NAME></a>
+</span>
+</TMPL_LOOP>
+<TMPL_IF NAME=ADD_GROUP>
+<span class="selectedTab">
+<TMPL_ELSE>
+<span class="tab">
+</TMPL_IF>
+<a href="node_management?operation=add_group">Add..</a>
+</span>
+</div>
+<div class="tabArea">
+<TMPL_IF NAME=ADD_GROUP>
+<form action="node_management" method="post">
+<input type="hidden" name="operation" value="add_group"/>
+<table>
+<tr><td>Name:</td><td><input name="group"/></td></tr>
+<tr><td><input type="submit" value="Add"/></td></tr>
+</table>
+<TMPL_ELSE>
+<table>
+<tr>
+<td class="header">V</td>
+<td class="header">M</td>
+<td class="header">Name</td>
+<td class="header">Address</td>
+<td class="header">Port</td>
+<td class="header">Management port</td>
+<td></td></tr>
+<TMPL_LOOP NAME=NODE_INFOS>
+<tr>
+<td>
+<TMPL_IF NAME=IS_RUNNING_OK>
+<img src="images/running.png"/>
+<TMPL_ELSE>
+<TMPL_IF NAME=IS_RUNNING>
+<img src="images/running_nok.png"/>
+<TMPL_ELSE>
+<img src="images/stopped.png"/>
+</TMPL_IF>
+</TMPL_IF>
+</td>
+<td>
+<TMPL_IF NAME=IS_MANAGEMENT_RUNNING>
+<img src="images/running.png"/>
+<TMPL_ELSE>
+<img src="images/stopped.png"/>
+</TMPL_IF>
+</td>
+<td><TMPL_VAR NAME=NAME></td>
+<td><TMPL_VAR NAME=ADDRESS></td>
+<td><TMPL_VAR NAME=PORT></td>
+<td><TMPL_VAR NAME=MANAGEMENT_PORT></td>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>">
+<input type="hidden" name="operation" value="start_node">
+<input type="submit" value="Start">
+</form>
+</td>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>">
+<input type="hidden" name="operation" value="stop_node">
+<input type="submit" value="Stop">
+</form>
+</td>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>">
+<input type="hidden" name="operation" value="remove_node">
+<input type="submit" value="Remove" class="removeNode">
+</form>
+</td>
+</tr>
+</TMPL_LOOP>
+</td>
+<tr>
+<form action="node_management" method="post">
+<input type="hidden" name="operation" value="add_node"/>
+<td></td>
+<td></td>
+<td><input type="text" name="name"/></td>
+<td><input type="text" name="address"/></td>
+<td><input type="text" name="port"/></td>
+<td><input type="text" name="management_port" value="<TMPL_VAR NAME=DEFAULT_MANAGEMENT_PORT>"/></td>
+<td>
+<input type="hidden" name="group" value="<TMPL_VAR NAME=GROUP>"/>
+<input type="submit" value="Add"/></td>
+</tr>
+</form>
+</table>
+<TMPL_IF NAME=BACKEND_HEALTH_INFOS>
+<table>
+<tr><td class="header">Backend</td><td class="header">Health</td></tr>
+<TMPL_LOOP NAME=BACKEND_HEALTH_INFOS>
+<tr><td><TMPL_VAR NAME=NAME></td><td><TMPL_VAR NAME=HEALTH></td></tr>
+</TMPL_LOOP>
+</table>
+<TMPL_ELSE>
+<i>No backend health information available</i>
+</TMPL_IF>
+<div id="groupControls">
+<table>
+<tr>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="group" value="<TMPL_VAR NAME=GROUP>">
+<input type="hidden" name="operation" value="start_group">
+<input type="submit" value="Start group">
+</form>
+</td>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="group" value="<TMPL_VAR NAME=GROUP>">
+<input type="hidden" name="operation" value="stop_group">
+<input type="submit" value="Stop group">
+</form>
+</td>
+<td>
+<form action="node_management" method="POST">
+<input type="hidden" name="group" value="<TMPL_VAR NAME=GROUP>">
+<input type="hidden" name="operation" value="remove_group">
+<input type="submit" value="Remove group" class="removeNode">
+</form>
+</td>
+</tr>
+</table>
+</div>
+</TMPL_IF>
+</div>

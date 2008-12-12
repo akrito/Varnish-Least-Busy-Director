@@ -1,0 +1,107 @@
+Web GUI for Varnish, very limited christmas edition
+===================================================
+
+This is a preview of the upcoming web GUI for Varnish, which will be released with version 2.1 It has most of the features intended for the final version, but a number of things are still missing, so it is just inteded to get feedback. The following known things are _not_ implemented
+ - saving of state: if the web server goes down, the information is lost.
+ - smart data collection: it stores ALL the polled data with the given poll intervlal. It does not truncate data used for the hour, day, week and month graph. So eventually you will go out of memory. 
+ - simple configuration: currently, you must edit the start.pl script by hand to set the configuration, and edit Varnish/RequestHandler.pl to add graphs and summary statistics. 
+ - security: there is no form for access control or security implemented.
+
+So I wouldn't use it for anything with 'prod' in its name, but as a preview of what is to come. It should be noted that when adding nodes to an existing group, all the parameters and VCL of that node are replaced with the default parameters and VCL of the group. So if you add more nodes to a group, be aware of this.
+
+Any feedback is most welcome, so just post it to varnish-misc@projects.linpro.no.
+
+So what can you actually do with this thing?
+
+
+Overview
+--------
+
+The web GUI is written in Perl and runs in its own server container, so a web server is not required, only the necessary Perl modules. The GUI consists of five sections: 'View stats', 'Configure parameters', 'Edit VCL', 'Node management' and 'Management console'. As the names might suggest, the GUI let you
+
+- view statistics from the Varnish nodes
+- configure the parameters of the Varnish nodes and clusters
+- edit the VCL for each cluster, which will be shared between all the nodes
+- perform node management, like adding clusters and nodes, get the state of the nodes and backend healths
+- get access to the management console of each node
+
+Requirements
+------------
+
+The web GUI is written in Perl, and uses some modules that might not be installed by default:
+
+- HTTP::Daemon (libwww-perl)
+- HTML::Template (libhtml-template-perl)
+- GD::Graph (libgd-graph-perl) 
+- LWP::UserAgent (libwww-perl)
+
+The name in the paranthesis are the package name on a standard Ubuntu system. The rest of the modules should be pretty standard.
+
+As the management port of the Varnish instances are used for collecting data, this must be enaled when starting varnish. This is done with the -T option to varnish, e.g. like this
+
+$ /opt/varnish/sbin/varnishd -a :80 -b :8080 -T :9003
+
+Configuration
+-------------
+
+The configuration is done directly in the Perl code for this very limited christmas edition, but will be more userfriendly in the final version. As this version doesn't save your state, e.g. the nodes and clusters added, I would recommend adding this in the start.pl. The files needing customisation are
+
+- start.pl: early in the file you'll see '# Configuration starts here', and this is where to set the config. It is all commented, so should be fairly straight forward.
+- Varnish/RequestHandler.pl: this is the main enging of the whole web GUI, including the parts creating the summary stats and graphs. This is well documented in the code, so look at line 380 for adding values to the summary statistics and 826 for adding custom graphs (and removing the dummy 'Missing graph').
+
+That is configuration for this version. Remember that when creating and editing VCLs, the information is stored on the node, so if the web server is restarted, the nodes will still have the VCLs (unless they are restarted too, of course).
+
+Starting it
+-----------
+
+'perl start.pl' shoud do it, after reading the Configuration section and setting the values to something reasonable for your setup. If the shebang matches your perl, and the script is executable, './start.pl' should also do it.
+
+The GUI
+======
+
+View stats
+----------
+
+In 'View stats' you will see statistics gathered from the nodes. The 'Summary statistics' is/will be customisable (see Configuration) and shows the most important statistics. If you want to see all the statistics from the Varnish nodes you turn 'Raw statistics' on. If you want the page to be refreshed automatically in order to follow the graph 'live', you can turn 'Auto refresh' on. The refresh rate is the same as the rate the statistics are collected from the nodes.
+
+Configure parameters
+--------------------
+
+'Configure' parameters let you configure the parameters for a group (cluster) or a single node. For this version, the parameters for the groups are a copy of the parameters of the first node added to the group, so if a group has not been populated, it will not contain any values. Changing a value in a group will change the same value of all the nodes in that group. Changing a value for node only changes that node, naturally. 
+
+Edit VCL
+--------
+
+'Edit VCL' lets you edit the VCL of the group, and any changes made here will be reflected on all the nodes of the group. You can add, edit, save and discard VCLs as well as making a VCL active. It discards without warning (isn't baby safe yet), so be carefull.
+
+A note about the editor: it is a simple text are, with <tab> giving you an indent as expected. If you save a VCL with error, the errors are listed and you can click on the 'Line X Pos Y' information in the error list to jump to that position in the editor.
+
+
+Node management
+---------------
+
+From 'Node management' you can manage groups and nodes. It will let you add, remove, stop and start the nodes and groups. It also displays information about the state of the node:
+ - the V column is the state of Varnish. Green means it responds with a 200 message to a probe (it probes http://varnish-host/), a yellow light means it anwers with a non-200 status code and a red light means it does not respond at all.
+ - the M columns is the state of the management port, with green meaning OK and red meaning it is not reachable. As almost all functionality is dependent on the management port, it should never have a red light.
+
+ If a health probe is defined in the VCL, a list of backend healths for the running VCL is shown as well.
+
+ Since this version does not let you save the configuration, it is recommended that you add groups and nodes in the stat.pl file as explained in Configuration.
+
+ WARNING: as noted earlier, adding nodes to a group will replace that nodes parameter and VCL.
+
+Management console
+------------------
+
+'Management console' gives you access to the management console of each node. The input field has magical tab completion for the CLI commands and a command history accessable by arrow up/down. In addition to the standard CLI commands, 'cls' can be issued to clear the console.
+
+The color and size of the console can be changed, but this information is unfortunately not stored when switching nodes.
+
+
+Road ahead
+==========
+
+This is a sneak preview of the web GUI for 2.1, and as such is not complete. It is mostly feature complete (minus things mentioned in the start of this file), so any comments on what is working, what is lacking etc. is most appreciated. Please use the varnish-misc@projects.linpro.no mailing list for discussion.
+
+
+Merry christmas!

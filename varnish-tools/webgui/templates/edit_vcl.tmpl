@@ -1,0 +1,182 @@
+<script type="text/javascript">
+
+// The following is lended from http://www.webdeveloper.com/forum/archive/index.php/t-74982.html in a post by m2c
+/*
+** Returns the caret (cursor) position of the specified text field.
+** Return value range is 0-oField.length.
+*/
+function getCaretPosition (oField) {
+	// Initialize
+	var iCaretPos = 0;
+	// IE Support
+	if (document.selection) {
+		// Set focus on the element
+		oField.focus ();
+		// To get cursor position, get empty selection range
+		var oSel = document.selection.createRange ();
+		// Move selection start to 0 position
+		oSel.moveStart ('character', -oField.value.length);
+		// The caret position is selection length
+		iCaretPos = oSel.text.length;
+	}
+	// Firefox support
+	else if (oField.selectionStart || oField.selectionStart == '0')
+		iCaretPos = oField.selectionStart;
+	// Return results
+	return (iCaretPos);
+}
+
+/*
+ ** Sets the caret (cursor) position of the specified text field.
+ ** Valid positions are 0-oField.length.
+ */
+function setCaretPosition (oField, iCaretPos) {
+	// IE Support
+	if (document.selection) {
+		// Set focus on the element
+		oField.focus ();
+		// Create empty selection range
+		var oSel = document.selection.createRange ();
+		// Move selection start and end to 0 position
+		oSel.moveStart ('character', -oField.value.length);
+		// Move selection start and end to desired position
+		oSel.moveStart ('character', iCaretPos);
+		oSel.moveEnd ('character', 0);
+		oSel.select ();
+	}
+	// Firefox support
+	else if (oField.selectionStart || oField.selectionStart == '0') {
+		oField.selectionStart = iCaretPos;
+		oField.selectionEnd = iCaretPos;
+		oField.focus ();
+	}
+}
+// End of code lending
+
+
+var indentString = "    ";
+
+function onEditorKeyDown(e) {
+	var keyCode = (window.Event) ? e.which : e.keyCode;
+	var charCode = e.charCode;
+	var editor = document.getElementById('editor');
+	var currentPosition = getCaretPosition(editor);
+
+// trap the tab
+	if (keyCode == 9) {
+		var indent = indentString;
+		var newValue = editor.value.substring(0, currentPosition) + indent
+						+ editor.value.substring(currentPosition);
+		editor.value = newValue;
+		setCaretPosition(editor, currentPosition + indent.length);
+		return false;
+	}
+	
+	return true;
+}
+
+function showNewEntry() {
+	document.getElementById('newVclCell').style['display'] = 'block';
+	document.getElementById('newVclEntry').focus();
+}
+
+function onNewVclEntryDown(e, form) {
+	var keyCode = (window.Event) ? e.which : e.keyCode;
+
+	if (keyCode == 13) {
+		form.operation.value = 'new';
+		form.submit();
+	}
+}
+
+function goToPosition(row, column) {
+	var editor = document.getElementById('editor');
+	var text = editor.value;
+	var pos = 0;
+	
+	while (row > 1) {
+		if (text.charAt(pos) == '\n')
+			row--;
+		pos++;
+	}
+
+	pos += column -1;
+	setCaretPosition(editor, pos);
+}
+
+</script>
+<TMPL_IF NAME=GROUP_INFOS>
+<div class="tabArea">
+<div class="tabHeader">
+<TMPL_LOOP NAME=GROUP_INFOS>
+<TMPL_IF NAME=SELECTED>
+<span class="selectedTab">
+<TMPL_ELSE>
+<span class="tab">
+</TMPL_IF>
+<a href="edit_vcl?group_name=<TMPL_VAR NAME=NAME>"><TMPL_VAR NAME=NAME></a>
+</span>
+</TMPL_LOOP>
+</div>
+<form action="edit_vcl" method="POST">
+<textarea cols=80 rows=30 onkeydown="return onEditorKeyDown(event);" id="editor" name="vcl"><TMPL_VAR NAME=VCL></textarea>
+<br/>
+<table>
+<tr>
+<td>
+<input type="button" onclick="showNewEntry();" value="New"/>
+</td>
+<td id="newVclCell" style="display: none;">
+<input type="text" name="new_vcl_name" id="newVclEntry" onkeydown="onNewVclEntryDown(event, this.form)"> 
+<input type="button" onclick="this.form.operation.value='new'; this.form.submit();" value="OK">
+</td>
+<td>
+|
+<select name="vcl_name">
+<TMPL_LOOP NAME=VCL_INFOS>
+<option 
+<TMPL_IF NAME=SELECTED>
+selected 
+</TMPL_IF>
+value="<TMPL_VAR NAME=NAME>"><TMPL_VAR NAME=NAME> 
+<TMPL_IF NAME=ACTIVE>
+(active)
+</TMPL_IF>
+</option>
+</TMPL_LOOP>
+</select>
+</td>
+<td>
+<input type="hidden" value="load" name="operation"/>
+<input type="submit" value="Load"/>
+<TMPL_IF NAME=EDITING_NEW_VCL>
+<input type="button" disabled value="Make active"/>
+<TMPL_ELSE>
+<input type="button" onclick="this.form.operation.value='make_active'; this.form.submit();" value="Make active"/>
+</TMPL_IF>
+<TMPL_LOOP NAME=GROUP_INFOS>
+<TMPL_IF NAME=SELECTED>
+<input type="hidden" name="group_name" value="<TMPL_VAR NAME=NAME>"/>
+</TMPL_IF>
+</TMPL_LOOP>
+<input type="button" onclick="this.form.operation.value='save'; this.form.submit();" value="Save"/>
+| <input type="button" onclick="this.form.operation.value='discard'; this.form.submit();" value="Discard"/>
+</td>
+</tr>
+</table>
+</form>
+<TMPL_IF NAME=EDITING_NEW_VCL>
+<script type="text/javascript">
+document.getElementById('editor').focus();
+</script>
+</TMPL_IF>
+<TMPL_IF NAME=VCL_ERROR>
+<b>Errors found in the VCL:</b>
+<div id="vclError">
+<TMPL_VAR NAME=VCL_ERROR>
+</div>
+</TMPL_IF>
+</div>
+<TMPL_ELSE>
+No groups available
+</TMPL_IF>

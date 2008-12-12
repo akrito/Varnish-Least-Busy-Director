@@ -1,0 +1,248 @@
+<script type="text/javascript">
+<TMPL_LOOP NAME=NODE_INFOS>
+<TMPL_IF NAME=SELECTED>
+var currentNodeId = <TMPL_VAR NAME=ID>;
+</TMPL_IF>
+</TMPL_LOOP>
+
+var commandHistoryMaxSize = 10;
+var commandHistoryIndex = 0;
+var commandHistorySize = 1;
+var commandHistory = new Array(10);
+
+var lastMatchIndex = -1;
+var lastPartialCommand;
+var managementCommands = [
+	"help",
+	"param.set",
+	"param.show", 
+	"ping",
+	"purge.hash",
+	"purge.list",
+	"purge.url",
+	"quit",
+	"start",
+	"stats",
+	"status",
+	"stop",
+	"vcl.discard",
+	"vcl.inline",
+	"vcl.list",
+	"vcl.load",
+	"vcl.show",
+	"vcl.use"
+	];
+
+function consolePrint(text) {
+	var console = document.getElementById('console');
+	console.value += text + "\n";
+	console.scrollTop = console.scrollHeight;
+}
+
+// taken from http://www.jibbering.com/2002/4/httprequest.html
+function doHttpRequest(url) {
+	var xmlhttp=false;
+	/*@cc_on @*/
+	/*@if (@_jscript_version >= 5)
+	// JScript gives us Conditional compilation, we can cope with old IE versions.
+	// and security blocked creation of the objects.
+	try {
+	xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+	} catch (e) {
+	try {
+	xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+	} catch (E) {
+	xmlhttp = false;
+	}
+	}
+	@end @*/
+	if (!xmlhttp && typeof XMLHttpRequest!='undefined') {
+		try {
+			xmlhttp = new XMLHttpRequest();
+		} catch (e) {
+			xmlhttp=false;
+		}
+	}
+	if (!xmlhttp && window.createRequest) {
+		try {
+			xmlhttp = window.createRequest();
+		} catch (e) {
+			xmlhttp=false;
+		}
+	}
+	xmlhttp.open("GET", url, true);
+	xmlhttp.onreadystatechange=function() {
+		if (xmlhttp.readyState == 4)
+			consolePrint(xmlhttp.responseText);
+	}
+	xmlhttp.send(null)
+}
+
+function runCommand(command) {
+	if (command == "cls")
+		document.getElementById('console').value = "";
+	else {
+		consolePrint(command);
+		var url = "http://<TMPL_VAR NAME=SERVER_HOST>:<TMPL_VAR NAME=SERVER_PORT>/send_management_command?node_id=" + escape(currentNodeId) + "&command=" + escape(command);
+		doHttpRequest(url);
+	}
+}
+
+function onInputKeyDown(e) {
+	var keyCode = (window.Event) ? e.which : e.keyCode;
+
+	if (keyCode == 13) {
+		var input = document.getElementById('input');
+		runCommand(input.value);
+		commandHistory[0] = input.value;
+
+		if (commandHistorySize < commandHistoryMaxSize)
+			commandHistorySize++;
+		for (var i = commandHistorySize - 1; i > 0; i--)
+			commandHistory[i] = commandHistory[i-1];
+		commandHistory[0] = input.value = "";
+		commandHistoryIndex = 0;
+	}
+	else if (keyCode == 9) {
+		var firstMatchIndex = -1;
+		var matchIndex = -1;
+		var partialCommandPattern = new RegExp("^" + lastPartialCommand);
+		for (var i = 0; i < managementCommands.length; i++) {
+			if (managementCommands[i].match(partialCommandPattern)) {
+				if (i > lastMatchIndex) {
+					matchIndex = i;
+					break;
+				}
+				
+				if (firstMatchIndex == -1)
+					firstMatchIndex = i;
+			}
+		}
+		
+		if (firstMatchIndex != -1 && matchIndex == -1 )
+			matchIndex = firstMatchIndex;
+
+		if (matchIndex != -1) {
+			lastMatchIndex = matchIndex;
+			document.getElementById('input').value = managementCommands[matchIndex];
+		}
+
+		// trap tab from escaping the input field
+		return false;
+	}
+	else if (keyCode == 38) {
+		
+		if (commandHistoryIndex + 1 < commandHistorySize) {
+			commandHistoryIndex++;
+			document.getElementById('input').value = commandHistory[commandHistoryIndex];
+		}
+
+		return false;
+	}
+	else if (keyCode == 40) {
+
+		if (commandHistoryIndex > 0 ) {
+			commandHistoryIndex--;
+			document.getElementById('input').value = commandHistory[commandHistoryIndex];
+		}
+
+		return false;
+	}
+
+}
+
+function onInputKeyUp(e) {
+	var keyCode = (window.Event) ? e.which : e.keyCode;
+	var inputValue = document.getElementById('input').value;
+
+	if (keyCode != 10 && keyCode != 9)
+		lastPartialCommand = inputValue;
+	if (keyCode != 38 && keyCode != 40)
+		commandHistory[0] = inputValue; 
+}
+
+function setConsoleColors(foreground, background) {
+	var console = document.getElementById('console');
+	var input = document.getElementById('input');
+	console.style['color'] = foreground;
+	console.style['backgroundColor'] = background;
+	input.style['color'] = foreground;
+	input.style['backgroundColor'] = background;
+
+	document.getElementById('input').focus();
+}
+
+function adjustConsoleSettings() {
+	var console = document.getElementById('console');
+	console.rows = document.getElementById('consoleRows').value;
+	console.cols = document.getElementById('consoleCols').value;
+}
+</script>
+
+<TMPL_IF NAME=NODE_INFOS>
+<div class="tabHeader">
+<TMPL_LOOP NAME=NODE_INFOS>
+<TMPL_IF NAME=SELECTED>
+<span class="selectedTab">
+<TMPL_ELSE>
+<span class="tab">
+</TMPL_IF>
+<a href="management_console?node_id=<TMPL_VAR NAME=ID>"><TMPL_VAR NAME=NAME></a>
+</span>
+</TMPL_LOOP>
+</div>
+<div class="tabArea">
+<textarea id="console" cols="<TMPL_VAR NAME=DEFAULT_CONSOLE_COLS>" rows="<TMPL_VAR NAME=DEFAULT_CONSOLE_ROWS>" style="font-size: <TMPL_VAR NAME=DEFAULT_CONSOLE_FONT_SIZE>;" readonly>
+ 
+                           oooo$$$$$$$$$$$$oooo
+                       oo$$$$$$$$$$$$$$$$$$$$$$$$o
+                    oo$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$o         o$   $$ o$
+    o $ oo        o$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$o       $$ $$ $$o$
+ oo $ $ "$      o$$$$$$$$$    $$$$$$$$$$$$$    $$$$$$$$$o       $$$o$$o$
+ "$$$$$$o$     o$$$$$$$$$      $$$$$$$$$$$      $$$$$$$$$$o    $$$$$$$$
+   $$$$$$$    $$$$$$$$$$$      $$$$$$$$$$$      $$$$$$$$$$$$$$$$$$$$$$$
+   $$$$$$$$$$$$$$$$$$$$$$$    $$$$$$$$$$$$$    $$$$$$$$$$$$$$  """$$$
+    "$$$""""$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$     "$$$
+     $$$   o$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$     "$$$o
+    o$$"   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$       $$$o
+    $$$    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" "$$$$$$ooooo$$$$o
+   o$$$oooo$$$$$  $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$   o$$$$$$$$$$$$$$$$$
+   $$$$$$$$"$$$$   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$     $$$$""""""""
+  """"       $$$$    "$$$$$$$$$$$$$$$$$$$$$$$$$$$$"      o$$$
+             "$$$o     """$$$$$$$$$$$$$$$$$$"$$"         $$$
+               $$$o          "$$""$$$$$$""""           o$$$    Welcome to the
+                $$$$o                                o$$$"
+                 "$$$$o      o$$$$$$o"$$$$o        o$$$$          Varnish
+                   "$$$$$oo     ""$$$$o$$$$$o   o$$$$""
+                      ""$$$$$oooo  "$$$o$$$$$$$$$"""         management console
+                         ""$$$$$$$oo $$$$$$$$$$
+                                 """"$$$$$$$$$$$                    for
+                                     $$$$$$$$$$$$
+                                      $$$$$$$$$$"             <TMPL_VAR NAME=CURRENT_NODE_NAME>
+                                       "$$$""""
+</textarea><br/>
+&gt;<input size="60" type="text" id="input" onkeydown="return onInputKeyDown(event);" onkeyup="onInputKeyUp(event);"/>
+<br/>
+Console settings:
+<ul>
+<li class="consoleSetting">
+Color theme: 
+<TMPL_LOOP NAME=CONSOLE_THEMES>
+<a style="font-size: <TMPL_VAR NAME=DEFAULT_CONSOLE_FONT_SIZE>; margin-left: 3px; padding: 5px; background-color: <TMPL_VAR NAME=BACKGROUND>; color: <TMPL_VAR NAME=FOREGROUND>;"
+	href="javascript:setConsoleColors('<TMPL_VAR NAME=FOREGROUND>', '<TMPL_VAR NAME=BACKGROUND>')">
+<TMPL_VAR NAME=NAME>
+</a>
+</TMPL_LOOP>
+</li>
+<li class="consoleSetting">Size: 
+<input type="text" id="consoleCols" value="<TMPL_VAR NAME=DEFAULT_CONSOLE_COLS>" onchange="adjustConsoleSettings();"> x 
+ <input type="text" id="consoleRows" value="<TMPL_VAR NAME=DEFAULT_CONSOLE_ROWS>" onchange="adjustConsoleSettings();">
+ </li>
+</div>
+<script type="text/javascript">
+document.getElementById('input').focus();
+setConsoleColors('<TMPL_VAR NAME=DEFAULT_CONSOLE_FOREGROUND>', '<TMPL_VAR NAME=DEFAULT_CONSOLE_BACKGROUND>');
+</script>
+<TMPL_ELSE>
+No nodes to manage.
+</TMPL_IF>

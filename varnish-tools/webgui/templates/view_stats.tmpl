@@ -1,0 +1,99 @@
+<script type="text/javascript">
+
+function loadGraph(nodeId, graphId, timeSpan) {
+	var id= "img_" + nodeId + "_" + graphId;
+	var graphUrl = "/generate_graph?time_span=" + timeSpan + "&node_id=" + nodeId + "&type=" + graphId;
+
+	var graphImage = document.getElementById(id);
+	if (graphImage) 
+		graphImage.src = graphUrl;
+}
+
+</script>
+
+<TMPL_IF NAME=NODE_INFOS>
+<h2> 
+<TMPL_IF NAME=STAT_TIME>
+Statistics collected at <TMPL_VAR NAME=STAT_TIME>
+<TMPL_IF NAME=AUTO_REFRESH>
+<span style="font-size:0.5em">(auto-refreshing)</span>
+</TMPL_IF>
+<TMPL_ELSE>
+No statistics yet collected
+</TMPL_IF>
+</h2>
+<table id="statsTable">
+<tr>
+<td> 
+<h2>Summary</h2>
+</td>
+</tr>
+<tr class="header">
+<td></td>
+<TMPL_LOOP NAME=NODE_INFOS>
+<td><TMPL_VAR NAME=NAME></td>
+</TMPL_LOOP>
+</tr>
+<tr>
+<td>
+<TMPL_LOOP NAME=SUMMARY_STATS>
+<TMPL_IF NAME=ODD_ROW>
+<tr class="oddRow">
+<TMPL_ELSE>
+<tr class="evenRow">
+</TMPL_IF>
+<td><TMPL_VAR NAME=NAME></td>
+<TMPL_LOOP NAME=VALUES>
+<td>
+<TMPL_IF NAME=IS_GRAPH>
+<div class="graph">
+<img id="img_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>" src=""/><br/>
+Last: 
+<a class="timeSpan" id="link_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>" href="javascript:loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'minute')">Mi</a>
+<a class="timeSpan" id="link_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>_hour" href="javascript:loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'hour')">H</a>
+<a class="timeSpan" id="link_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>_hour" href="javascript:loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'day')">D</a>
+<a class="timeSpan" id="link_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>_hour" href="javascript:loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'week')">W</a>
+<a class="timeSpan" id="link_<TMPL_VAR NAME=NODE_ID>_<TMPL_VAR NAME=GRAPH_ID>_hour" href="javascript:loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'month')">Mo</a>
+</div>
+<script type="text/javascript">
+loadGraph('<TMPL_VAR NAME=NODE_ID>', '<TMPL_VAR NAME=GRAPH_ID>', 'minute');
+</script>
+<TMPL_ELSE>
+<TMPL_VAR NAME=VALUE>
+</TMPL_IF>
+</td>
+</TMPL_LOOP>
+<tr>
+</TMPL_LOOP>
+<TMPL_IF NAME=VIEW_RAW_STATS>
+<tr><td><h2>Raw statistics</h2>
+</td></tr>
+<tr>
+<td>
+<TMPL_LOOP NAME=RAW_STATS>
+<TMPL_IF NAME=ODD_ROW>
+<tr class="oddRow">
+<TMPL_ELSE>
+<tr class="evenRow">
+</TMPL_IF>
+<td><TMPL_VAR NAME=NAME></td>
+<TMPL_LOOP NAME=VALUES>
+<td><TMPL_VAR NAME=VALUE></td>
+</TMPL_LOOP>
+</tr>
+</TMPL_LOOP>
+</table>
+Raw statistics: On <a href="/view_stats?view_raw_stats=0&auto_refresh=<TMPL_VAR NAME=AUTO_REFRESH>">Off</a>
+<TMPL_ELSE>
+</table>
+Raw statistics: <a href="/view_stats?view_raw_stats=1&auto_refresh=<TMPL_VAR NAME=AUTO_REFRESH>">On</a> Off
+</TMPL_IF>
+| Auto refresh: 
+<TMPL_IF NAME=AUTO_REFRESH>
+On <a href="/view_stats?view_raw_stats=<TMPL_VAR NAME=VIEW_RAW_STATS>&auto_refresh=0">Off</a>
+<TMPL_ELSE>
+<a href="/view_stats?view_raw_stats=<TMPL_VAR NAME=VIEW_RAW_STATS>&auto_refresh=1">On</a> Off
+</TMPL_IF>
+<TMPL_ELSE>
+No nodes available
+</TMPL_IF>

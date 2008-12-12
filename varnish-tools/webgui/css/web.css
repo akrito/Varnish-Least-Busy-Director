@@ -1,0 +1,189 @@
+* {
+	padding: 0px;
+	margin: 0px;
+}
+
+a {
+	color: black;
+}
+
+body {
+	background-color: #d7d7d7;
+	padding: 10px;
+}
+
+#header {
+	background-color: #990200;
+	border-style: solid;
+	padding-bottom: 3px;
+	border-width: 0px 0px 2px 0px;
+}
+
+img#headerLogo {
+	background-color: #d7d7d7;
+}
+
+#menu {
+	padding: 5px 3px 5px 3px;
+	text-align: center;
+}
+
+a.menu {
+	color: #fff;
+	padding-right: 20px;
+}
+
+#error {
+	font-size: 1.1em;
+	padding: 5px;
+	border-width: 3px;
+	border-style: solid;
+	border-color: #6c0000;
+	background-color: #a21616;
+	margin-bottom: 10px;
+}
+
+#content {
+	background-color: #f2f2f2;	
+	padding: 10px;
+}
+
+td.header {
+	font-weight: bold;
+	border-style: solid;
+	border-width: 0px 0px 1px 0px;
+}
+
+td.footer {
+	font-size: 0.7em;
+	padding-top: 10px;
+	border-style: solid;
+	border-width: 1px 0px 0px 0px;
+}
+
+
+table#parameters {
+	padding: 2px;
+}
+
+td.parameterLabel {
+	padding: 0px 5px 0px 5px;
+}
+
+td.parameterValue {
+	padding: 0px 5px 0px 5px;
+	text-align: right;
+}
+
+td.parameterUnit {
+	font-style: italic;
+	padding: 0px 5px 0px 5px;
+}
+
+td.parameterDescription {
+	padding: 0px 5px 0px 5px;
+}
+
+td.parameterEdit {
+	padding: 0px 5px 0px 5px;
+	text-align: center;
+}
+
+tr.evenRow {
+	background-color:#fff;
+	vertical-align: top;
+}
+
+tr.oddRow {
+	background-color:#eee;
+	vertical-align: top;
+}
+
+textarea#vclEditor {
+	margin: 5px 0px 10px 0px;
+}
+
+span.tab {
+	padding: 0px 10px 0px 10px;
+	width: 10em;
+	background-color: #ddd;
+	border-style: solid;
+	border-width: 1px 1px 1px 1px;
+}	
+
+span.selectedTab {
+	padding: 1px 10px 1px 10px;
+	border-style: solid;
+	background-color: #fff;
+	border-width: 1px 1px 0px 1px;
+}	
+
+span.space {
+	border-style: solid;
+	border-width: 0 0 1px 0;
+}
+
+div.tabArea {
+	background-color: #fff;
+	padding: 5px;
+	border-style: solid;
+	border-width: 0px 1px 1px 1px;
+}
+
+table#statsTable {
+	background-color: #fff;
+	border-style: solid;
+	border-width: 1px;
+}
+
+option {
+	padding-right: 10px;
+}
+
+#groupControls {
+	padding-top: 30px;
+}
+
+td {
+	padding: 1px 2px 1px 2px;
+}
+
+textarea#vclConfig {
+	font-size: 1.1em;
+	border-style: solid;
+	border-width: 2px;
+	border-color: #990200;
+	padding: 2px 0 0 5px;
+}
+
+#themeSelection {
+	padding: 3px;
+}
+
+li.consoleSetting {
+	margin-left: 30px;
+	margin-top: 10px;
+}
+
+input.removeNode {
+	margin-left: 50px;
+}
+
+#status {
+	border-color: #2e6c00;
+	border-style: solid;
+	border-width: 3px;
+	background-color: #419a00;
+	padding: 5px;
+	margin-bottom: 10px;
+}
+
+#vclError {
+	font-family: monospace;
+	font-size: 1.1em;
+	border-color: black;
+	border-style: solid;
+	border-width: 3px;
+	background-color: red;
+	padding: 5px;
+}
