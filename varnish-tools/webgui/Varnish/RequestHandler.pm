@@ -13,6 +13,7 @@ use URI::Escape;
 use GD::Graph::lines;
 use POSIX qw(strftime);
 use List::Util qw(first);
+use Socket;
 
 {
 	my %request_ref_of;
@@ -29,7 +30,9 @@ use List::Util qw(first);
 		$response_content_ref_of{$new_object} = \"";
 		$response_header_ref_of{$new_object} = {};
 
-		$master_tmpl_var_of{$new_object}->{'server_host'} = $connection->sockhost();
+		my $server_ip = $connection->sockhost();
+		my $server_hostname = gethostbyaddr(inet_aton($server_ip), AF_INET);
+		$master_tmpl_var_of{$new_object}->{'server_host'} = $server_hostname;
 		$master_tmpl_var_of{$new_object}->{'server_port'} = $connection->sockport();
 
 		return $new_object;
