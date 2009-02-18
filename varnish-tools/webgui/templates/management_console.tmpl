@@ -1,3 +1,6 @@
+<TMPL_IF NAME=RESTRICTED>
+Management console disabled in restricted mode.
+<TMPL_ELSE>
 <script type="text/javascript">
 <TMPL_LOOP NAME=NODE_INFOS>
 <TMPL_IF NAME=SELECTED>
@@ -14,9 +17,11 @@ var lastMatchIndex = -1;
 var lastPartialCommand;
 var managementCommands = [
 	"help",
+	"banner",
 	"param.set",
 	"param.show", 
 	"ping",
+	"purge",
 	"purge.hash",
 	"purge.list",
 	"purge.url",
@@ -245,4 +250,5 @@ setConsoleColors('<TMPL_VAR NAME=DEFAULT_CONSOLE_FOREGROUND>', '<TMPL_VAR NAME=D
 </script>
 <TMPL_ELSE>
 No nodes to manage.
+</TMPL_IF>
 </TMPL_IF>

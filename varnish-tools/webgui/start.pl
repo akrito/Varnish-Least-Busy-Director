@@ -11,6 +11,7 @@ use Varnish::RequestHandler;
 use Varnish::NodeManager;
 use Varnish::Node;
 use Varnish::Statistics;
+use Varnish::DB;
 
 
 # Configuration starts here
@@ -23,57 +24,28 @@ my %config = (
 
 # 'poll_intervall' is the polling interval for the statistics
 	poll_interval		=> 5,
+
+# 'restricted' gives a restricted version of the web GUI, disabling the user
+# from changing any values
+	restricted			=> 0,
+
+# 'graph_width' and 'graph_height' are width and height for the graphs in 'View stats'
+	graph_width			=> 250,
+	graph_height		=> 125,
+# 'large_graph_width' and 'large_graph_height' are width and height for the full size graph
+# when clicking a stat graph in 'View stats'
+	large_graph_width	=> 1000,
+	large_graph_height	=> 500,
+
+# 'log_filename' is the filename to log errors and information about actions done in the GUI
+	log_filename		=> "varnish.log",
+
+# 'db_filename' is the sqlite3 database created with the SQL outputed from create_db_data.pl
+	db_filename			=> 'varnish.db',
 );
-
-# create some default groups 
-my @groups = qw(default images);
-
-# create some default nodes 
-my @node_params = (
-	{
-		name 			=> 'varnish-1',
-		address			=> 'localhost',
-		port			=> '80',
-		group			=> 'default',
-		management_port	=> 9001,
-	},
-	{
-		name 			=> 'varnish-2',
-		address			=> 'localhost',
-		port			=> '8181',
-		group			=> 'default',
-		management_port	=> 9002,
-	},
-	{
-		name 			=> 'varnish-1',
-		address			=> 'localhost',
-		port			=> '8888',
-		group			=> 'images',
-		management_port	=> 9003,
-	},
-);
-
 # End of configuration
 
 set_config(\%config);
-
-for my $group (@groups) {
-	Varnish::NodeManager->add_group($group);
-}
-
-for my $node_param_ref (@node_params) {
-	my $group_exists =	grep {
-							$_ eq $node_param_ref->{'group'}
-						} @groups;
-	if ($group_exists) {
-		my $node = Varnish::Node->new($node_param_ref);
-		Varnish::NodeManager->add_node($node);
-	}
-	else {
-		print "Node " . $node_param_ref->{'name'} . " has an invalid group "
-				. $node_param_ref->{'group'} . ". Skipping.";
-	}
-}
 
 # catch interupt to stop the daemon
 $SIG{'INT'} = sub {
@@ -85,15 +57,23 @@ $SIG{'PIPE'} = sub {
 #	print "Pipe ignored\n";
 };
 
+log_info("Starting HTTP daemon");
 my $daemon = HTTP::Daemon->new(	LocalPort => $config{'port'}, 
 								LocalAddr => $config{'address'},
-								ReuseAddr => 1 ) || die "Could not start web server";
+								ReuseAddr => 1 );
+
+if (!$daemon) {
+	log_error("Could not start HTTP daemon");
+	die "Could not start web server";
+}
+log_info("HTTP daemon started with URL " . $daemon->url);
 print "Web server started with URL: " . $daemon->url, "\n";
 my $data_collector_handle = threads->create('data_collector_thread');
 while (my $connection = $daemon->accept) {
 	REQUEST:
 	while (my $request = $connection->get_request) {
 		$connection->force_last_request;
+#		print "Request for: " . $request->uri . "\n";
 		if ($request->uri =~ m{/(.*?\.png)} ||
 			$request->uri =~ m{/(.*?\.css)} ||
 			$request->uri =~ m{/(.*?\.ico)}) {
@@ -114,25 +94,25 @@ while (my $connection = $daemon->accept) {
 	$connection->close();
 	undef($connection);
 }
-print "Shutting down!\n";
+log_info("Shutting down web server");
 $daemon->close();
-Varnish::NodeManager->quit();
-print "Stopping data collector thread\n";
+Varnish::DB->finish();
+log_info("Stopping data collector thread");
 $data_collector_handle->join();
 
 sub data_collector_thread {
 	my $url = $daemon->url . "collect_data";
 	my $interval = $config{'poll_interval'};
-	print "Data collector thread started. Polling URL $url at $interval seconds interval\n";
-
+	
+	log_info("Data collector thread started. Polling URL $url at $interval seconds interval");
 	sleep 1; # wait for the server to come up
 	while (1) {
 		my $user_agent = LWP::UserAgent->new;
-		$user_agent->timeout(6);
+		$user_agent->timeout(10);
 		my $response = $user_agent->get($url);
 			
 		last if ($response->code eq "500");
-		sleep $interval;
+		sleep($interval);
 	}
 	print "Data collector thread stopped.\n";
 }

@@ -2,220 +2,155 @@ package Varnish::NodeManager;
 use strict;
 use warnings;
 use Varnish::Node;
+use Varnish::Group;
+use Varnish::Util qw(set_error no_error get_error);
 use List::Util qw(first);
 
 {
-	my @groups = ();
-	my @nodes = ();
-	my %group_parameters = ();
-
 	my $error = "";
 
+	sub _clone_unit {
+		my ($master, $slave) = @_;
+
+		my $parameter_ref = $master->get_parameters();
+		$slave->update_parameters($parameter_ref);
+	
+		my $master_vcl_infos_ref = $master->get_vcl_infos();
+		for my $vcl_info (@$master_vcl_infos_ref) {
+			my $name = $vcl_info->{'name'};
+			$vcl_info->{'vcl'} = $master->get_vcl($name);
+		}
+
+		my $previous_active_vcl;
+		my $vcl_infos_ref = $slave->get_vcl_infos();
+		for my $vcl_info (@$vcl_infos_ref) {
+			my $name = $vcl_info->{'name'};
+			if ($vcl_info->{'active'}) {
+				$previous_active_vcl = $name;
+			}
+			else {
+				$slave->discard_vcl($name);
+			}
+		}
+
+		for my $vcl_info (@$master_vcl_infos_ref) {
+			my $name = $vcl_info->{'name'};
+			my $vcl = $vcl_info->{'vcl'};
+			$slave->save_vcl($name, $vcl);
+			if ($vcl_info->{'active'}) {
+				$slave->make_vcl_active($name);
+				if ($previous_active_vcl) {
+					$slave->discard_vcl($previous_active_vcl);
+				}
+			}
+		}
+	}
+
 	sub add_node {
-		my ($self, $node) = @_;
+		my ($self, $node, $use_as_group_defaults) = @_;
 
-		my $group = $node->get_group();
-		if (! grep { $_->get_group eq $group } @nodes ) {
-			$node->set_master(1);
-			my %node_parameters = %{$node->get_management()->get_parameters()};
-			while (my ($parameter, $value) = each %node_parameters) {
-				$group_parameters{$group}->{$parameter} = $value;
-			}
+		my $management = $node->get_management();
+		if (!$management->ping()) {
+			return set_error($self, "Could not connect to management port: "
+									. get_error());
 		}
-		else {
-# inherit the VCL and the parameters of the group
-			my %group_parameters = %{$group_parameters{$group}};
-			my $management = $node->get_management();
-			while (my ($parameter, $value) = each %group_parameters) {
-				$management->set_parameter($parameter, $value->{'value'});
-			}
+		Varnish::DB->add_node($node);
 
-			my $vcl_names_ref = $management->get_vcl_names();
-			my $active_vcl_name;
-			my @vcl_names;
-			if ($vcl_names_ref) {
-				@vcl_names = @{$vcl_names_ref};
-				$active_vcl_name = shift @vcl_names;
+		my $group_id = $node->get_group_id();
+		if ($group_id > 0) {
+			my $group = get_group($self, $group_id);
+			if ($use_as_group_defaults) {
+				_clone_unit($node, $group);
 			}
-
-			for my $vcl_name (@vcl_names) {
-				if ($vcl_name ne $active_vcl_name) {
-					$management->discard_vcl($vcl_name);
-				}
-			}
-		
-			my $discard_active_vcl = 1;
-			my $group_master = first {
-									$_->get_group() eq $group
-									&& $_->is_master()
-								} @nodes;
-			my $master_management = $group_master->get_management();
-			my $master_active_vcl_name;
-			my @master_vcl_names;
-			my $master_vcl_names_ref = $group_master->get_management()->get_vcl_names();
-			if ($master_vcl_names_ref) {
-				@master_vcl_names = @{$master_vcl_names_ref};
-				$master_active_vcl_name = shift @master_vcl_names;
-			}
-
-			for my $vcl_name (@master_vcl_names) {
-				my $vcl = $master_management->get_vcl($vcl_name); 
-				$management->set_vcl($vcl_name, $vcl);
-
-				if ($vcl_name eq $master_active_vcl_name) {
-					$management->make_vcl_active($vcl_name);
-				}
-				if ($vcl_name eq $active_vcl_name) {
-					$discard_active_vcl = 0;
-				}
-			}
-
-			if ($discard_active_vcl) {
-				$management->discard_vcl($active_vcl_name);
+			else {
+				_clone_unit($group, $node);
 			}
 		}
 
-		push @nodes, $node;
+		return no_error();
 	}
 
 	sub remove_node {
 		my ($self, $node) = @_;
 
-		if ($node) {
-			@nodes = grep { $_ != $node } @nodes;
-
-			if ($node->is_master()) {
-				my $new_master = first {
-									$_->is_master
-									&& $_->get_group() eq $node->get_group()
-								 } @nodes;
-				if ($new_master) {
-					$new_master->set_master(1);
-				}
-			}
-		}
+		Varnish::DB->remove_node($node);
 	}
 
 	sub get_node {
 		my ($self, $node_id) = @_;
 		
-		my $node = first {
-						$_->get_id() == $node_id
-					} @nodes;
+		my ($node) = @{Varnish::DB->get_nodes({id => $node_id})};
 
 		return $node;
 	}
 
 	sub add_group {
-		my ($self, $name) = @_;
+		my ($self, $group) = @_;
 
-		push @groups, $name;
+		Varnish::DB->add_group($group);
 	}
 
 	sub remove_group {
-		my ($self, $name) = @_;
+		my ($self, $group) = @_;
 
-		@groups = grep { $_ ne $name } @groups;
-		my @nodes_to_remove = grep { $_->get_group() eq $name } @nodes;
-		for my $node (@nodes_to_remove) {
-			remove_node($self, $node);
-		}
+		Varnish::DB->remove_group($group);
 	}
+
+	sub get_group {
+		my ($self, $group_id) = @_;
+		
+		my ($group) = @{Varnish::DB->get_groups({id => $group_id})};
+
+		return $group;
+	}
+
 
 	sub get_groups {
 
-		return @groups;
+		return Varnish::DB->get_groups();
 	}
 
 	sub get_nodes {
-
-		return @nodes;
-	}
-
-	sub get_nodes_for_group {
 		my ($self, $group) = @_;
-
-		return grep { $_->get_group() eq $group } @nodes;
-	}
-
-	sub get_group_masters {
-		my ($self) = @_;
-
-		return grep { $_->is_master() } @nodes;
-	}
-
-	sub load {
-
-
-	}
-
-	sub save {
-		my ($self) = @_;
-
-	}
-
-	sub quit {
-		my ($self) = @_;
-
-		for my $node (@nodes) {
-			my $management = $node->get_management();
-			if ($management) {
-				$management->close();
-			}
-		}
 		
-		save($self);
-	}
-
-	sub set_error {
-		my ($self, $new_error) = @_;
-
-		$error = $new_error;
-
-		return;
-	}
-
-	sub get_error {
-		my ($self) = @_;
-
-		return $error;
-	}
-
-	sub no_error {
-		my ($self, $return_value) = @_;
-
-		$error = "";
-
-		return defined($return_value) ? $return_value : 1;
-	}
-
-	sub set_group_parameter {
-		my ($self, $group, $parameter, $value) = @_;
-
-		my $error;
-
-		$group_parameters{$group}->{$parameter}->{'value'} = $value;
-		my @nodes_in_group = grep { $_->get_group() eq $group } @nodes;
-		for my $node (@nodes_in_group) {
-			my $management = $node->get_management();
-			if (!$management->set_parameter($parameter, $value)) {
-				$error .= $management->get_error() . "\n";
-			}
-		}
-
-		if ($error) {
-			return set_error($self, $error);
+		if (defined($group)) {
+			return Varnish::DB->get_nodes({group_id => $group->get_id()});
 		}
 		else {
-			return no_error();
+			return Varnish::DB->get_nodes();
 		}
 	}
 
-	sub get_group_parameters {
+	sub get_group_name {
+		my ($self, $group_id) = @_;
+	
+		if ($group_id > 0) {
+			my $group = get_group($self, $group_id);
+			if ($group) {
+				return $group->get_name();
+			}
+		}
+		return '';
+	}
+
+	sub update_node {
+		my ($self, $node) = @_;
+
+		my $current = get_node($self, $node->get_id());
+		if ($current->get_group_id() != $node->get_group_id()
+			&& $node->get_group_id() > 0) {
+			my $group = get_group($self, $node->get_group_id());
+			_clone_unit($group, $node);
+		}
+		Varnish::DB->update_node($node);
+	}
+
+	sub update_group {
 		my ($self, $group) = @_;
 
-		return $group_parameters{$group};
+		Varnish::DB->update_group($group);
 	}
+
 }
 
 1;

@@ -4,11 +4,11 @@ use strict;
 use IO::Socket::INET;
 use Exporter;
 use List::Util qw(first);
+use Varnish::Util qw(set_error get_error no_error);
 
 {
 	my %hostname_of;
 	my %port_of;
-	my %error_of;
 	my %socket_of;
 
 	sub new {
@@ -18,9 +18,25 @@ use List::Util qw(first);
 
 		$hostname_of{$new_object} = $hostname;
 		$port_of{$new_object} = $port;
-		$error_of{$new_object} = "";
 
 		return $new_object;
+	}
+
+	sub _read_cli_response {
+		my ($socket) = @_;
+
+		my ($status_code, $response_size) = <$socket> =~ m/^(\d+) (\d+)/;
+		my $response;
+		my $remaining_bytes = $response_size;
+		while ($remaining_bytes > 0 ) {
+			my $data;
+			my $read = read $socket, $data, $remaining_bytes;
+			$response .= $data;
+			$remaining_bytes -= $read;
+		}
+		my $eat_newline = <$socket>;
+
+		return ($status_code, $response);
 	}
 
 	sub _send_command {
@@ -33,22 +49,13 @@ use List::Util qw(first);
 					PeerAddr => $hostname_of{$self}
 					);
 			return ("666", "Could not connect to node") if (!$socket);
+# skip the banner
+			_read_cli_response($socket);
 			$socket_of{$self} = $socket;
 		}
 		my $socket = $socket_of{$self};
-		
 		print $socket "$command\n";
-		my ($status_code, $response_size) = <$socket> =~ m/^(\d+) (\d+)/;
-		my $response;
-		my $remaining_bytes = $response_size;
-		while ($remaining_bytes > 0 ) {
-			my $data;
-			my $read = read $socket, $data, $remaining_bytes;
-			$response .= $data;
-			$remaining_bytes -= $read;
-		}
-		my $eat_newline = <$socket>;
-		return ($status_code, $response);
+		return _read_cli_response($socket);
 	}
 
 	sub send_command {
@@ -56,8 +63,8 @@ use List::Util qw(first);
 	
 		my ($status_code, $response) = _send_command($self, $command);
 
-		return no_error($self, $response) if $status_code eq "200";
-		return set_error($self, $response);
+		return no_error($response) if $status_code eq "200";
+		return set_error($response);
 	}
 
 	sub get_parameters {
@@ -67,17 +74,23 @@ use List::Util qw(first);
 		my $current_param;
 
 		my ($status_code, $response) = _send_command($self, "param.show -l");
-		return set_error($self, $response) if ($status_code ne "200");
+		return set_error($response) if ($status_code ne "200");
 		for my $line (split( '\n', $response)) {
 
-			if ($line =~ /^(\w+)\s+(\w+) (.*)$/) {
-				my %param_info = (
-						value 	=> $2,
-						unit	=> $3
-						);
-
+			if ($line =~ /^(\w+)\s+(.*?)(?: \[(.*)\])?$/) {
+				my $value = $2;
+				my $unit = $3;
 				$current_param = $1;
-				$param{$1} = \%param_info;
+
+				if ($current_param eq "user" || $current_param eq "group" 
+					|| $current_param eq "waiter") {
+					($value) = split(/ /, $value);
+				}
+				my %param_info = (
+						value 	=> $value,
+						unit	=> $unit
+						);
+				$param{$current_param} = \%param_info;
 			}
 			elsif ($line =~ /^\s+(.+)$/) {
 # The first comment line contains no . and describes the default value.
@@ -98,8 +111,8 @@ use List::Util qw(first);
 
 		my ($status_code, $response) = _send_command($self, "param.show $parameter");
 
-		return no_error($self, $1) if ($response =~ /^(?:\w+)\s+(\w+)/);
-		return set_error($self, $response);
+		return no_error($1) if ($response =~ /^(?:\w+)\s+(\w+)/);
+		return set_error($response);
 	}
 
 	sub set_parameter {
@@ -108,29 +121,27 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "param.set $parameter $value");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
-	sub get_vcl_names {
+	sub get_vcl_infos {
 		my ($self) = @_;
 
 		my ($status_code, $response) = _send_command($self, "vcl.list");
-		return set_error($self, $response) if ($status_code ne "200");
+		return set_error($response) if ($status_code ne "200");
 
-		my @vcl_infos = ($response =~ /^(\w+)\s+\d+\s+(\w+)$/gm);
+		my @vcl_infos = ($response =~ /^(\w+)\s+(?:\d+|N\/A)\s+(\w+)$/gm);
 		my $vcl_names_ref = [];
-		my $active_vcl_name = "";
 		while (my ($status, $name) = splice @vcl_infos, 0, 2) {
 			next if ($status eq "discarded");
-
-			if ($status eq "active") {
-				$active_vcl_name = $name;
-			}
-			push @$vcl_names_ref, $name;
+			
+			push @$vcl_names_ref, {
+				name	=>	$name,
+				active	=>	$status eq "active",
+			};
 		}
 
-		unshift @$vcl_names_ref, $active_vcl_name;
-		return no_error($self, $vcl_names_ref) if ($status_code eq "200");
+		return no_error($vcl_names_ref) if ($status_code eq "200");
 	}
 	
 	sub get_vcl {
@@ -138,8 +149,8 @@ use List::Util qw(first);
 
 		my ($status_code, $response) = _send_command($self, "vcl.show $vcl_name");
 
-		return no_error($self, $response) if ($status_code eq "200");
-		return set_error($self, $response);
+		return no_error($response) if ($status_code eq "200");
+		return set_error($response);
 	}
 
 	sub set_vcl {
@@ -149,37 +160,36 @@ use List::Util qw(first);
 		$vcl =~ s/\n/\\n/g;
 
 		my $need_restart = 0;
-		my ($active_vcl_name, @vcl_names) = @{get_vcl_names($self)};
-		my $editing_active_vcl = $vcl_name eq $active_vcl_name;
+		my $vcl_info = first { $_->{'name'} eq $vcl_name } @{get_vcl_infos($self)};
 
 		# try to compile the new vcl
 		my ($status_code, $response) = _send_command($self, "vcl.inline _new_vcl \"$vcl\"");
 		if ($status_code ne "200") {
 			_send_command($self, "vcl.discard _new_vcl");
-			return set_error($self, $response);
+			return set_error($response);
 		}
 
-		if ($editing_active_vcl) {
+		if ($vcl_info && $vcl_info->{'active'}) {
 			($status_code, $response) = _send_command($self, "vcl.use _new_vcl");
 		}
 
-		if (grep { $_ eq $vcl_name } @vcl_names) {
+		if ($vcl_info) {
 			($status_code, $response) = _send_command($self, "vcl.discard $vcl_name");
 			if ($status_code ne "200") {
 				_send_command($self, "vcl.use $vcl_name");
 				_send_command($self, "vcl.discard _new_vcl");
-				return set_error($self, $response);
+				return set_error($response);
 			}
 		}
 		($status_code, $response) = _send_command($self, "vcl.inline $vcl_name \"$vcl\"");
 
-		if ($editing_active_vcl) {
+		if ($vcl_info && $vcl_info->{'active'}) {
 			($status_code, $response) = _send_command($self, "vcl.use $vcl_name");
 		}
 		_send_command($self, "vcl.discard _new_vcl");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
 	sub discard_vcl {
@@ -188,7 +198,7 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "vcl.discard $vcl_name");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
 	sub make_vcl_active {
@@ -197,7 +207,7 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "vcl.use $vcl_name");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
 	sub get_stats {
@@ -209,9 +219,8 @@ use List::Util qw(first);
 								/^\s*(\d+)\s+(.*?)$/;
 								$2 => $1
 							} split /\n/, $response;
-
-		return no_error($self, \%stat_counter) if ($status_code eq "200");
-		return set_error($self, $response);
+		return no_error(\%stat_counter) if ($status_code eq "200");
+		return set_error($response);
 	}
 
 	sub ping {
@@ -220,7 +229,7 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "stats");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
 	sub start {
@@ -229,7 +238,7 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "start");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
+		return set_error($response);
 	}
 
 	sub stop {
@@ -238,29 +247,7 @@ use List::Util qw(first);
 		my ($status_code, $response) = _send_command($self, "stop");
 
 		return no_error($self) if ($status_code eq "200");
-		return set_error($self, $response);
-	}
-
-	sub set_error {
-		my ($self, $error) = @_;
-
-		$error_of{$self} = $error;
-
-		return;
-	}
-
-	sub get_error {
-		my ($self) = @_;
-
-		return $error_of{$self};
-	}
-
-	sub no_error {
-		my ($self, $return_value) = @_;
-
-		$error_of{$self} = "";
-
-		return defined($return_value) ? $return_value : 1;
+		return set_error($response);
 	}
 
 	sub close {
@@ -275,11 +262,11 @@ use List::Util qw(first);
 		my ($self) = @_;
 
 		my ($status_code, $response) = _send_command($self, "debug.health");
-		return set_error($self, $response) if ($status_code ne "200");
+		return set_error($response) if ($status_code ne "200");
 		
 		my %backend_health = ($response =~ /^Backend (\w+) is (\w+)$/gm);
 
-		return no_error($self, \%backend_health);
+		return no_error(\%backend_health);
 	}
 }
 
