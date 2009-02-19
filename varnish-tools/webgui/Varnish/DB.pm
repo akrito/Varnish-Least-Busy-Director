@@ -131,7 +131,7 @@ use Varnish::DB_Data;
 		my $sth = $dbh->prepare($sql);
 		$sth->execute($node->get_id());
 
-		$sql = "DELETE FROM parameters WHERE node_id = ?";
+		$sql = "DELETE FROM stat WHERE node_id = ?";
 		$sth = $dbh->prepare($sql);
 		$sth->execute($node->get_id());
 	

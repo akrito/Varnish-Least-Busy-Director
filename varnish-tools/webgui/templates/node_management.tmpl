@@ -42,7 +42,7 @@ document.getElementById('group_name').focus();
 </TMPL_IF>
 <td class="header">Address</td>
 <td class="header">Port</td>
-<td class="header">Management port</td>
+<td class="header">Management<br/>port</td>
 <td></td></tr>
 <TMPL_LOOP NAME=NODE_INFOS>
 <TMPL_IF NAME=__ODD__>
@@ -155,7 +155,7 @@ value="<TMPL_VAR NAME=ID>">
 <td><input type="text" name="port" size=5/></td>
 <td><input type="text" name="management_port" value="<TMPL_VAR NAME=DEFAULT_MANAGEMENT_PORT>"/></td>
 <TMPL_IF NAME=SHOW_INHERIT_SETTINGS>
-<td><input type="checkbox" name="inherit_settings" value="true" <TMPL_IF NAME=INHERIT_SETTINGS>checked</TMPL_IF>></td><td>Group inherit settings</td>
+<td colspan=3> <input type="checkbox" name="inherit_settings" value="true" <TMPL_IF NAME=INHERIT_SETTINGS>checked</TMPL_IF>>Group inherit<br/> settings</td>
 </TMPL_IF>
 <td>
 <input type="hidden" name="group_id" value="<TMPL_VAR NAME=GROUP_ID>"/>

@@ -189,10 +189,6 @@ input.removeNode {
 	padding: 5px;
 }
 
-td.addNodeBorder {
-	margin: 15px;
-}
-
 img.goToNodeManagement {
 	border-width: 0 0 1px 0;
 }

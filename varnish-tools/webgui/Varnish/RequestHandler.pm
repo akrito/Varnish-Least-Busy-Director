@@ -837,11 +837,13 @@ FIND_ACTIVE_VCL:
 				Varnish::NodeManager->add_node($node, $inherit_settings);
 				$status .= "Node " . $node->get_name() . " added successfully.";
 				
+				my $group = Varnish::NodeManager->get_group($param{'group_id'});
+				my $group_name = ($group ? $group->get_name() : "");
 				log_info("[" . $node->get_name() . "] [Added node]"
 					. " [name=" . $node->get_name() . "]"
 					. " [address=" . $node->get_address() . "]"
 					. " [port=" . $node->get_port() . "]"
-					. " [group=" . $param{'group_name'} . "]"
+					. " [group=" . $group_name . "]"
 					. " [management_port=" . $node->get_management_port() . "]");
 			}
 			else {
@@ -864,11 +866,15 @@ FIND_ACTIVE_VCL:
 				
 				Varnish::NodeManager->update_node($node);
 
+				$status .= "Node " . $node->get_name() . " updated successfully.";
+
+				my $group = Varnish::NodeManager->get_group($param{'node_group_id'});
+				my $group_name = ($group ? $group->get_name() : "");
 				log_info("[" . $node->get_name() . "] [Updated node]"
 					. " [name=" . $node->get_name() . "]"
 					. " [address=" . $node->get_address() . "]"
 					. " [port=" . $node->get_port() . "]"
-					. " [group=" . $param{'group_name'} . "]"
+					. " [group=" . $group_name . "]"
 					. " [management_port=" . $node->get_management_port() . "]");
 			}
 		}
