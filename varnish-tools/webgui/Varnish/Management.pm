@@ -2,6 +2,8 @@ package Varnish::Management;
 
 use strict;
 use IO::Socket::INET;
+use IO::Select;
+use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use Exporter;
 use List::Util qw(first);
 use Varnish::Util qw(set_error get_error no_error);
@@ -24,8 +26,11 @@ use Varnish::Util qw(set_error get_error no_error);
 
 	sub _read_cli_response {
 		my ($socket) = @_;
+		
+		my $status_line = <$socket>;
+		return (undef, undef) if !defined($status_line);
+		my ($status_code, $response_size) = $status_line =~ m/^(\d+) (\d+)/;
 
-		my ($status_code, $response_size) = <$socket> =~ m/^(\d+) (\d+)/;
 		my $response;
 		my $remaining_bytes = $response_size;
 		while ($remaining_bytes > 0 ) {
@@ -46,11 +51,21 @@ use Varnish::Util qw(set_error get_error no_error);
 			my $socket = new IO::Socket::INET->new(
 					PeerPort => $port_of{$self},
 					Proto	 => 'tcp',
-					PeerAddr => $hostname_of{$self}
+					PeerAddr => $hostname_of{$self},
+					Blocking => 0,
+
 					);
 			return ("666", "Could not connect to node") if (!$socket);
-# skip the banner
-			_read_cli_response($socket);
+
+			my $select = IO::Select->new();
+			$select->add($socket);
+			# wait 100ms, tops, before assuming we don't get a banner
+			if ($select->can_read(0.1)) {
+				_read_cli_response($socket);
+			}
+			my $flags = fcntl($socket, F_GETFL, 0);
+			$flags = fcntl($socket, F_SETFL, $flags & ~O_NONBLOCK);
+
 			$socket_of{$self} = $socket;
 		}
 		my $socket = $socket_of{$self};
