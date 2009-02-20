@@ -155,6 +155,7 @@ use Varnish::Util qw(set_error get_error no_error);
 
 	sub set_vcl {
 		my ($self, $vcl_name, $vcl) = @_;
+		$vcl =~ s/\\/\\\\/g;
 		$vcl =~ s/"/\\"/g;
 		$vcl =~ s/\r//g;
 		$vcl =~ s/\n/\\n/g;
