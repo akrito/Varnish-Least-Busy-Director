@@ -43,6 +43,9 @@ document.getElementById('group_name').focus();
 <td class="header">Address</td>
 <td class="header">Port</td>
 <td class="header">Management<br/>port</td>
+<TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
+<td class="header">Inheritance<br/>settings</td>
+</TMPL_IF>
 <td></td></tr>
 <TMPL_LOOP NAME=NODE_INFOS>
 <TMPL_IF NAME=__ODD__>
@@ -88,6 +91,9 @@ value="<TMPL_VAR NAME=ID>">
 <td><input type="text" name="address" value="<TMPL_VAR NAME=ADDRESS>"/></td>
 <td><input type="text" name="port" value="<TMPL_VAR NAME=PORT>" size=5/></td>
 <td><input type="text" name="management_port" value="<TMPL_VAR NAME=MANAGEMENT_PORT>"/></td>
+<TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
+<td></td>
+</TMPL_IF>
 <td>
 <input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>">
 <input type="hidden" name="group_id" value="<TMPL_VAR NAME=GROUP_ID>">
@@ -105,6 +111,9 @@ value="<TMPL_VAR NAME=ID>">
 <td><TMPL_VAR NAME=ADDRESS></td>
 <td><TMPL_VAR NAME=PORT></td>
 <td><a href="/management_console?node_id=<TMPL_VAR NAME=ID>"><TMPL_VAR NAME=MANAGEMENT_PORT></a></td>
+<TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
+<td></td>
+</TMPL_IF>
 <TMPL_UNLESS NAME=RESTRICTED>
 <td>
 <form action="node_management" method="POST">
@@ -154,8 +163,14 @@ value="<TMPL_VAR NAME=ID>">
 <td><input type="text" name="address"/></td>
 <td><input type="text" name="port" size=5/></td>
 <td><input type="text" name="management_port" value="<TMPL_VAR NAME=DEFAULT_MANAGEMENT_PORT>"/></td>
-<TMPL_IF NAME=SHOW_INHERIT_SETTINGS>
-<td colspan=3> <input type="checkbox" name="inherit_settings" value="true" <TMPL_IF NAME=INHERIT_SETTINGS>checked</TMPL_IF>>Group inherit<br/> settings</td>
+<TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
+<td> 
+<select name="inheritance">
+<TMPL_LOOP NAME=INHERITANCE_SETTINGS>
+<option value="<TMPL_VAR NAME=VALUE>" <TMPL_IF NAME=SELECTED>selected</TMPL_IF>><TMPL_VAR NAME=NAME></option>
+</TMPL_LOOP>
+</select>
+</td>
 </TMPL_IF>
 <td>
 <input type="hidden" name="group_id" value="<TMPL_VAR NAME=GROUP_ID>"/>

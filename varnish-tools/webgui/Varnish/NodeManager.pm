@@ -21,12 +21,14 @@ use List::Util qw(first);
 			$vcl_info->{'vcl'} = $master->get_vcl($name);
 		}
 
-		my $previous_active_vcl;
+		my $slave_active_vcl = "";
+		my $discard_slave_active_vcl = 0;
 		my $vcl_infos_ref = $slave->get_vcl_infos();
 		for my $vcl_info (@$vcl_infos_ref) {
 			my $name = $vcl_info->{'name'};
 			if ($vcl_info->{'active'}) {
-				$previous_active_vcl = $name;
+				$slave_active_vcl = $name;
+				$discard_slave_active_vcl = 1;
 			}
 			else {
 				$slave->discard_vcl($name);
@@ -39,16 +41,20 @@ use List::Util qw(first);
 			$slave->save_vcl($name, $vcl);
 			if ($vcl_info->{'active'}) {
 				$slave->make_vcl_active($name);
-				if ($previous_active_vcl) {
-					$slave->discard_vcl($previous_active_vcl);
-				}
+			}
+			if ($slave_active_vcl eq $name) {
+				$discard_slave_active_vcl = 0;
 			}
 		}
+		if ($discard_slave_active_vcl) {
+			$slave->discard_vcl($slave_active_vcl);
+		}	
 	}
-
+	
 	sub add_node {
-		my ($self, $node, $use_as_group_defaults) = @_;
+		my ($self, $node, $inheritance) = @_;
 
+		$inheritance ||= 0;
 		my $management = $node->get_management();
 		if (!$management->ping()) {
 			return set_error($self, "Could not connect to management port: "
@@ -57,12 +63,12 @@ use List::Util qw(first);
 		Varnish::DB->add_node($node);
 
 		my $group_id = $node->get_group_id();
-		if ($group_id > 0) {
+		if ($group_id > 0 && $inheritance) {
 			my $group = get_group($self, $group_id);
-			if ($use_as_group_defaults) {
+			if ($inheritance == 1) {
 				_clone_unit($node, $group);
 			}
-			else {
+			elsif ($inheritance == 2) {
 				_clone_unit($group, $node);
 			}
 		}

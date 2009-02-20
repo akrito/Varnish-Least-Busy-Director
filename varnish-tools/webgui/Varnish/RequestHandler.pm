@@ -743,7 +743,7 @@ FIND_ACTIVE_VCL:
 		$param{'address'} = $$parameter_ref{'address'} || "";
 		$param{'port'} ||= "";
 		$param{'management_port'} ||= "";
-		$param{'inherit_settings'} ||= "";
+		$param{'inheritance'} ||= 0;
 		$param{'edit_node'} ||= -1;
 	
 		my $template = "node_management.tmpl";
@@ -760,8 +760,8 @@ FIND_ACTIVE_VCL:
 		$tmpl_var{'show_group'} = 0;
 		$tmpl_var{'show_add_node'} = 1;
 		$tmpl_var{'show_node_in_backend_health'} = 1;
-		$tmpl_var{'inherit_settings'} = 0;
-		$tmpl_var{'show_inherit_settings'} = 1;
+		$tmpl_var{'show_inheritance_settings'} = 1;
+		$tmpl_var{'inheritance_settings'} = [];
 
 		my $error = "";
 		my $status = "";
@@ -833,18 +833,21 @@ FIND_ACTIVE_VCL:
 					group_id		=> $param{'group_id'}, 
 					management_port	=> $param{'management_port'}
 				});
-				my $inherit_settings = $param{'inherit_settings'} ne "";
-				Varnish::NodeManager->add_node($node, $inherit_settings);
+				Varnish::NodeManager->add_node($node, $param{'inheritance'});
 				$status .= "Node " . $node->get_name() . " added successfully.";
 				
 				my $group = Varnish::NodeManager->get_group($param{'group_id'});
 				my $group_name = ($group ? $group->get_name() : "");
+				my $inheritance = ($param{'inheritance'} == 0 ? "None"	:
+								   $param{'inheritance'} == 1 ? "Group inherited node" :
+								   "Node inherited group");
 				log_info("[" . $node->get_name() . "] [Added node]"
 					. " [name=" . $node->get_name() . "]"
 					. " [address=" . $node->get_address() . "]"
 					. " [port=" . $node->get_port() . "]"
 					. " [group=" . $group_name . "]"
-					. " [management_port=" . $node->get_management_port() . "]");
+					. " [management_port=" . $node->get_management_port() . "]"
+					. " [settings_inheritance=$inheritance]");
 			}
 			else {
 				$error .= "Not enough information to add node:\n"; 
@@ -955,9 +958,6 @@ FIND_ACTIVE_VCL:
 			if ($tmpl_var{'group_id'} != -1) {
 				$group = Varnish::NodeManager->get_group($tmpl_var{'group_id'});
 				$nodes_ref = Varnish::NodeManager->get_nodes($group);
-				if ($tmpl_var{'group_id'} == 0) {
-					$tmpl_var{'show_inherit_settings'} = 0;
-				}
 			}
 			else {
 				$nodes_ref = Varnish::NodeManager->get_nodes();
@@ -989,13 +989,34 @@ FIND_ACTIVE_VCL:
 				}
 				push @{$tmpl_var{'node_infos'}}, $node_info_ref;
 			}
-			if (@$nodes_ref == 0) {
-				$tmpl_var{'inherit_settings'} = 1;
-			}
 		}
 		else {
 			$tmpl_var{'add_group'} = 1;
 		}
+
+		if ($tmpl_var{'group_id'} > 0) {
+			my @inheritance_settings;
+			push @inheritance_settings, {
+				value		=>  2,
+							name		=> "Node inherits group",
+							selected 	=> @{$tmpl_var{'node_infos'}} > 0,
+			};
+			push @inheritance_settings, {
+				value		=> 1,
+							name		=> "Group inherits node",
+							selected 	=> @{$tmpl_var{'node_infos'}} == 0,
+			};
+			push @inheritance_settings, {
+				value		=> 0,
+							name		=> "No inheritance",
+							selected 	=> 0,
+			};
+			$tmpl_var{'inheritance_settings'} = \@inheritance_settings;
+		}
+		else {
+			$tmpl_var{'show_inheritance_settings'} = 0;
+		}
+
 
 		my $selected_group = Varnish::NodeManager->get_group($tmpl_var{'group_id'});
 		if ($selected_group) {
