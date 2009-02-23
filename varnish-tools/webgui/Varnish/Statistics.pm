@@ -55,6 +55,12 @@ use Varnish::DB;
 			return (undef, undef);
 		}
 	}
+
+	sub _union {
+		my %temp_hash = map { $_ => 1 } @_;
+
+		return keys %temp_hash;
+	}
 	
 	sub generate_graph_data {
 		my ($self, $unit_id, $is_node, $time_span, $divisors_ref, $dividends_ref, $use_delta, $desired_number_of_values) = @_;
@@ -73,23 +79,26 @@ use Varnish::DB;
 		if ($use_delta) {
 			$start_time -= $poll_interval;
 		}
-	
-		my $measures_ref;
-		if ($is_node) {
-			my $node = Varnish::NodeManager->get_node($unit_id);
-			return ([],[], -1, -1) if (!$node);
-			$measures_ref = Varnish::DB->get_stat_data($node, $start_time);
-		}
-		else {
-			my $group = Varnish::NodeManager->get_group($unit_id);
-			return ([],[], -1, -1) if (!$group);
-			$measures_ref = Varnish::DB->get_stat_data($group, $start_time);
-		}
 
 		my @divisors = ($divisors_ref ? 
 							map {  get_db_friendly_name($_); } @$divisors_ref : ());
 		my @dividends = ($dividends_ref ? 
 							map {  get_db_friendly_name($_); } @$dividends_ref : ());
+		my @all_fields = _union(@dividends, @divisors);
+	
+		my $measures_ref;
+		if ($is_node) {
+			my $node = Varnish::NodeManager->get_node($unit_id);
+			return ([],[], -1, -1) if (!$node);
+			$measures_ref = Varnish::DB->get_stat_data($node, $start_time, \@all_fields);
+		}
+		else {
+			my $group = Varnish::NodeManager->get_group($unit_id);
+			return ([],[], -1, -1) if (!$group);
+			$measures_ref = Varnish::DB->get_stat_data($group, $start_time, \@all_fields);
+		}
+
+
 		my @values;
 		my @times;
 		my $value2;

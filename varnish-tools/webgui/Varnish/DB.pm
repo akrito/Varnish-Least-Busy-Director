@@ -56,7 +56,7 @@ use Varnish::DB_Data;
 					push @field_values, $value;
 				}
 				else {
-					print STDERR "Field $db_field does not exist in the stat table. Please update schema\n";
+					print STDERR "Field $db_field does not exist in the stat table. Please update schema by running create_db_data.pl\n";
 				}
 			}
 		}
@@ -71,21 +71,25 @@ use Varnish::DB_Data;
 	}
 
 	sub get_stat_data {
-		my ($self, $unit, $after_timestamp) = @_;
+		my ($self, $unit, $after_timestamp, $stat_fields_ref) = @_;
+
+		if (!defined($stat_fields_ref)) {
+			my @stat_fields = keys(%stat_field_exist);
+
+			$stat_fields_ref = \@stat_fields;
+		}
 
 		my $sql;
 		if (ref($unit) eq "Varnish::Node") {
 			$sql = "SELECT time, has_data";
-			my @stat_fields = keys %stat_field_exist;
-			for my $stat_field (@stat_fields) {
+			for my $stat_field (@$stat_fields_ref) {
 				$sql .=", $stat_field";
 			}
 			$sql .= " FROM stat WHERE node_id = ? AND time > ? ORDER BY time ASC";
 		}
 		else {
 			$sql = "SELECT time, SUM(has_data) as has_data";
-			my @stat_fields = keys %stat_field_exist;
-			for my $stat_field (@stat_fields) {
+			for my $stat_field (@$stat_fields_ref) {
 				$sql .=", SUM($stat_field) AS $stat_field";
 			}
 			$sql .= " FROM stat WHERE node_id IN (SELECT id FROM node WHERE group_id = ?) AND time >= ? GROUP BY time ORDER BY time ASC";
