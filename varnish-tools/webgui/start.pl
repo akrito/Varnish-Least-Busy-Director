@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use threads;
+use threads::shared;
 use strict;
 use warnings;
 use HTTP::Daemon;
@@ -68,6 +69,8 @@ if (!$daemon) {
 }
 log_info("HTTP daemon started with URL " . $daemon->url);
 print "Web server started with URL: " . $daemon->url, "\n";
+my $running :shared;
+$running = 1;
 my $data_collector_handle = threads->create('data_collector_thread');
 while (my $connection = $daemon->accept) {
 	REQUEST:
@@ -105,6 +108,7 @@ while (my $connection = $daemon->accept) {
 }
 log_info("Shutting down web server");
 $daemon->close();
+$running = 0;
 Varnish::DB->finish();
 log_info("Stopping data collector thread");
 $data_collector_handle->join();
@@ -117,11 +121,12 @@ sub data_collector_thread {
 	sleep 1; # wait for the server to come up
 	while (1) {
 		my $user_agent = LWP::UserAgent->new;
+
 		$user_agent->timeout(10);
 		my $response = $user_agent->get($url);
-			
-		last if ($response->code eq "500");
 		sleep($interval);
+
+		last if (!$running);
 	}
 	print "Data collector thread stopped.\n";
 }
