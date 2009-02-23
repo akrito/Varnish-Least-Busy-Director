@@ -75,10 +75,19 @@ while (my $connection = $daemon->accept) {
 		$connection->force_last_request;
 #		print "Request for: " . $request->uri . "\n";
 		if ($request->uri =~ m{/(.*?\.png)} ||
-			$request->uri =~ m{/(.*?\.css)} ||
 			$request->uri =~ m{/(.*?\.ico)}) {
 			my $filename = $1;
 			
+			$connection->send_file_response($filename);
+			next REQUEST;
+		}
+		elsif ($request->uri =~ m{/(.*?\.css)}) {
+			my $filename = $1;
+			
+			$connection->send_basic_header();
+			print $connection "Content-Type: text/css";
+			$connection->send_crlf();
+			$connection->send_crlf();
 			$connection->send_file($filename);
 			next REQUEST;
 		}
