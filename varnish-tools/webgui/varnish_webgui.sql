@@ -1,4 +1,4 @@
--- This file was auto generated Wed Feb 18 15:58:37 2009 by create_db_files.pl
+-- This file was auto generated Mon Feb 23 08:16:23 2009 by create_db_files.pl
 DROP TABLE node_group;
 DROP TABLE node;
 DROP TABLE stat;
@@ -187,6 +187,9 @@ CREATE TABLE parameter_info(
 	unit TEXT,
 	description TEXT
 );
+
+CREATE INDEX stat_time ON stat(time);
+CREATE INDEX stat_node_id ON stat(node_id);
 
 INSERT INTO node_group VALUES(0, 0, 'Standalone');
 

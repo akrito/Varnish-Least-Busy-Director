@@ -111,6 +111,9 @@ CREATE TABLE parameter_info(
 	description TEXT
 );
 
+CREATE INDEX stat_time ON stat(time);
+CREATE INDEX stat_node_id ON stat(node_id);
+
 INSERT INTO node_group VALUES(0, 0, 'Standalone');
 
 $parameter_info_sql
