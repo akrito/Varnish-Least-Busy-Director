@@ -159,7 +159,12 @@ use Varnish::DB;
 						}
 					}
 					else {
-						$delta_value = ($value - $last_value) / $delta_time;
+						if ($delta_time > 0) {
+							$delta_value = ($value - $last_value) / $delta_time;
+						}
+						else {
+							$delta_value = undef;
+						}
 					}
 
 					$last_value = $value;
