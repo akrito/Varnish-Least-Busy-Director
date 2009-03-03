@@ -135,10 +135,11 @@ use Socket;
 			defined($use_master_template) ? $use_master_template : 1;
 		
 		if ($content_template) {
+			my $document_root = get_config_value('document_root');
 			my %template_options = 
-				(die_on_bad_params => 0, global_vars => 1, loop_context_vars => 1);
+				(die_on_bad_params => 0, global_vars => 1, loop_context_vars => 1, path => [$document_root]);
 			if ($use_master_template) {
-				my $template_text = read_file("templates/master.tmpl");
+				my $template_text = read_file("$document_root/templates/master.tmpl");
 				$template_text =~ s/CONTENT_TEMPLATE/$content_template/;
 
 				my $template = HTML::Template->new_scalar_ref(	\$template_text,

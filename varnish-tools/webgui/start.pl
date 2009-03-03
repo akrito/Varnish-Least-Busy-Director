@@ -14,9 +14,8 @@ use Varnish::Node;
 use Varnish::Statistics;
 use Varnish::DB;
 
-
-# Configuration starts here
-my %config = (
+my $global_config_filename = '/etc/varnish/webui.conf';
+my %default_config = (
 # 'address' is the IP to bind to. If not set, it listens on all.
 #	address				=> localhost,
 
@@ -39,14 +38,27 @@ my %config = (
 	large_graph_height	=> 500,
 
 # 'log_filename' is the filename to log errors and information about actions done in the GUI
-	log_filename		=> "varnish.log",
+	log_filename		=> 'varnish.log',
 
 # 'db_filename' is the sqlite3 database created with the SQL outputed from create_db_data.pl
 	db_filename			=> 'varnish.db',
-);
-# End of configuration
 
-set_config(\%config);
+# 'document_root' is the root of the templates and css file
+	document_root		=> '.',
+);
+
+set_config(\%default_config);
+my $config_filename;
+if (@ARGV == 1 && -f $ARGV[0]) {
+	$config_filename = $ARGV[0];
+}
+elsif (-f $global_config_filename) {
+	$config_filename = $global_config_filename;
+}
+if ($config_filename) {
+	print "Using config file $config_filename\n";
+	read_config($config_filename);
+}
 
 # catch interupt to stop the daemon
 $SIG{'INT'} = sub {
@@ -59,8 +71,8 @@ $SIG{'PIPE'} = sub {
 };
 
 log_info("Starting HTTP daemon");
-my $daemon = HTTP::Daemon->new(	LocalPort => $config{'port'}, 
-								LocalAddr => $config{'address'},
+my $daemon = HTTP::Daemon->new(	LocalPort => get_config_value('port'), 
+								LocalAddr => get_config_value('address'),
 								ReuseAddr => 1 );
 
 if (!$daemon) {
@@ -72,6 +84,7 @@ print "Web server started with URL: " . $daemon->url, "\n";
 my $running :shared;
 $running = 1;
 my $data_collector_handle = threads->create('data_collector_thread');
+my $document_root = get_config_value('document_root');
 while (my $connection = $daemon->accept) {
 	REQUEST:
 	while (my $request = $connection->get_request) {
@@ -81,7 +94,7 @@ while (my $connection = $daemon->accept) {
 			$request->uri =~ m{/(.*?\.ico)}) {
 			my $filename = $1;
 			
-			$connection->send_file_response($filename);
+			$connection->send_file_response("$document_root/$filename");
 			next REQUEST;
 		}
 		elsif ($request->uri =~ m{/(.*?\.css)}) {
@@ -115,7 +128,7 @@ $data_collector_handle->join();
 
 sub data_collector_thread {
 	my $url = $daemon->url . "collect_data";
-	my $interval = $config{'poll_interval'};
+	my $interval = get_config_value('poll_interval');
 	
 	log_info("Data collector thread started. Polling URL $url at $interval seconds interval");
 	sleep 1; # wait for the server to come up

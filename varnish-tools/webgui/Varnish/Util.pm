@@ -8,7 +8,9 @@ use URI::Escape;
 use Algorithm::Diff;
 
 our @EXPORT = qw(
+				read_config
 				set_config
+				print_config
 				get_config_value
 				read_file
 				get_formatted_percentage
@@ -29,6 +31,25 @@ our @EXPORT = qw(
 	my $error;
 	my $log_handle;
 
+	sub read_config {
+		my ($filename) = @_;
+
+		my $handle;
+		if (!open($handle, "<$filename")) {
+			die "Could not open config file $filename\n";
+		}
+
+		while (<$handle>) {
+			if (/^(\w+)\s*=\s*(.*?)$/) {
+				my $key = lc $1;
+				my $value = $2;
+				$config{$key} = $value;
+			}
+		}
+
+		close($handle);	
+	}
+
 	sub set_config {
 		my ($config_ref) = @_;
 
@@ -42,6 +63,13 @@ our @EXPORT = qw(
 		}
 
 		Varnish::DB->init($config{'db_filename'});
+	}
+
+	sub print_config {
+		print "Config:\n";
+		while (my ($k, $v) = each(%config)) {
+			print "$k: $v\n";
+		}
 	}
 
 	sub get_config_value {
