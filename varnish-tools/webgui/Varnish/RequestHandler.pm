@@ -10,7 +10,7 @@ use Varnish::NodeManager;
 use Varnish::Node;
 use Varnish::Statistics;
 use GD::Graph::lines;
-use GD qw(gdTinyFont);
+use GD qw(gdTinyFont gdSmallFont gdLargeFont gdGiantFont);
 use POSIX qw(strftime);
 use List::Util qw(first);
 use Socket;
@@ -1110,26 +1110,28 @@ FIND_ACTIVE_VCL:
 				use_delta		=> $param{'custom_delta'},
 			},
 		);
+
+		my $x_tick_factor = $param{'width'} / 300;
 		my %time_span_graph_parameters  = (
 			minute	=> {
 				x_label		=> 'Time',
-				x_tick_number	=> 4, # need to be set to make x_number_format work
+				x_tick_number	=> 4 * $x_tick_factor, # need to be set to make x_number_format work
 				x_number_format	=> sub { return strftime("%H:%M:%S", localtime($_[0])); },
 			},
 			hour	=> {
 				x_label			=> 'Time',
-				x_tick_number	=> 6, # need to be set to make x_number_format work
+				x_tick_number	=> 6 * $x_tick_factor, # need to be set to make x_number_format work
 				x_number_format	=> sub { return strftime("%H:%M", localtime($_[0])); },
 			},
 			day	=> {
 				x_label			=> 'Time',
-				x_tick_number	=> 4, # need to be set to make x_number_format work
-				x_number_format	=> sub { return strftime("%H", localtime($_[0])); },
+				x_tick_number	=> 6 * $x_tick_factor, # need to be set to make x_number_format work
+				x_number_format	=> sub { return strftime("%H:%M", localtime($_[0])); },
 			},
 			week	=> {
 				x_label			=> 'Time',
-				x_tick_number	=> 7, # need to be set to make x_number_format work
-				x_number_format	=> sub { return strftime("%d", localtime($_[0])); },
+				x_tick_number	=> 7 * $x_tick_factor, # need to be set to make x_number_format work
+				x_number_format	=> sub { return strftime("%d.%m", localtime($_[0])); },
 			},
 			month	=> {
 				x_label			=> 'Time',
@@ -1165,10 +1167,20 @@ FIND_ACTIVE_VCL:
 		return if (!$data_ref);
 	
 		my $graph = GD::Graph::lines->new($param{'width'}, $param{'height'});
-		if ($param{'width'} < 300) {
-				$graph->set_title_font(gdTinyFont);
-			$graph->set_legend_font(gdTinyFont);
+		my $title_font = gdSmallFont;
+		my $axis_font = gdTinyFont;
+		my $label_font = gdSmallFont;
+		if ($param{'width'} > 300) {
+			$title_font = gdGiantFont;
+			$axis_font = gdSmallFont;
+			$label_font = gdLargeFont;
 		}
+		$graph->set_title_font($title_font);
+		$graph->set_legend_font($title_font);
+		$graph->set_x_label_font($label_font);
+		$graph->set_y_label_font($label_font);
+		$graph->set_x_axis_font($axis_font);
+		$graph->set_y_axis_font($axis_font);
 		$graph->set((%{$graph_info{$param{'type'}}->{'graph_parameter'}}, 
 				%{$time_span_graph_parameters{$param{'time_span'}}}),
 				dclrs => ["#990200"],
