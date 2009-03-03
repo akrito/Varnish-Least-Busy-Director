@@ -71,6 +71,11 @@ use Socket;
 		return %parameter;
 	}
 
+	sub _access_denied {
+
+		return ("access_denied.tmpl", undef);
+	}
+
 	sub process {
 		my ($self) = @_;
 
@@ -113,7 +118,12 @@ use Socket;
 			($content_template, $param) = management_console(\%request_parameter);
 		}
 		elsif ($operation eq 'send_management_command') {
-			$response_content = send_management_command(\%request_parameter);
+			if (get_config_value('restricted')) {
+				($content_template, $param) = _access_denied();
+			}
+			else {
+				$response_content = send_management_command(\%request_parameter);
+			}
 		}
 		elsif ($operation eq 'generate_graph') {
 			$response_header_ref_of{$self}->{'Content-Type'} = "image/png";
@@ -127,7 +137,7 @@ use Socket;
 			$response_content = "Ok";
 		}
 		else {
-			return;
+			($content_template, $param) = _access_denied();
 		}
 
 		$response_header_ref_of{$self}->{'Connection'} = "Close";
@@ -195,6 +205,12 @@ use Socket;
 		
 		my $successfull_save = 0;
 		my $editing_new_vcl = 0;
+
+		if (get_config_value('restricted')
+			&& $param{'operation'}
+			&& $param{'operation'} ne 'load') {
+			return _access_denied();
+		}
 
 		if ($param{'operation'} eq "make_active") {
 			my $unit;
@@ -619,6 +635,10 @@ FIND_ACTIVE_VCL:
 		my $nodes_ref = Varnish::NodeManager->get_nodes();
 		my $groups_ref = Varnish::NodeManager->get_groups();
 		if (%changed_parameter) {
+			if (get_config_value('restricted')) {
+				return _access_denied();
+			}
+
 			my $unit_name;
 			my $node = Varnish::NodeManager->get_node($param{'node_id'});
 			if ($node) {
@@ -766,6 +786,11 @@ FIND_ACTIVE_VCL:
 
 		my $error = "";
 		my $status = "";
+
+		if (get_config_value('restricted')
+			&& $param{'operation'} ne '') {
+			return _access_denied();
+		}
 
 		if ($param{'operation'} eq "add_group") {
 			if ($param{'group_name'}) {
