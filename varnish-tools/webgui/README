@@ -1,10 +1,10 @@
-Web GUI for Varnish
+Web UI for Varnish
 ===================
 
 Overview
 --------
 
-The web GUI is written in Perl and runs in its own server container, so a web server is not required, only the necessary Perl modules. The GUI consists of five sections: 'View stats', 'Configure parameters', 'Edit VCL', 'Node management' and 'Management console'. As the names might suggest, the GUI let you
+The web UI is written in Perl and runs in its own server container, so a web server is not required, only the necessary Perl modules. The UI consists of five sections: 'View stats', 'Configure parameters', 'Edit VCL', 'Node management' and 'Management console'. As the names might suggest, the UI let you
 
 - view statistics and graphs from the Varnish nodes
 - configure the parameters of the Varnish nodes and groups
@@ -15,7 +15,7 @@ The web GUI is written in Perl and runs in its own server container, so a web se
 Requirements
 ------------
 
-The web GUI is written in Perl, and uses some modules that might not be installed by default:
+The web UI is written in Perl, and uses some modules that might not be installed by default:
 
 - HTTP::Daemon (libwww-perl)
 - HTML::Template (libhtml-template-perl)
@@ -23,6 +23,7 @@ The web GUI is written in Perl, and uses some modules that might not be installe
 - LWP::UserAgent (libwww-perl)
 - Algorithm::Diff (libalgorithm-diff-perl)
 - DBD::Sqlite3 (libdbd-sqlite3-perl)
+- Digest::SHA (libdigest-sha-perl)
 
 
 The name in the paranthesis are the package name on a standard Ubuntu system. The rest of the modules should be pretty standard.
@@ -31,23 +32,25 @@ As the management port of the Varnish instances are used for collecting data, th
 
 $ /opt/varnish/sbin/varnishd -a :80 -b :8080 -T :9003
 
+To get authentication for the mangement console, apply the -S option to varnishd. Please refer to the man page for how to set it up.
+
 Configuration
 -------------
 
-The configuration is done directly in start.pl, which let you set listening port, names of log files and database files etc. It is all well documented in the file.
+The UI can be configured using a config file with a key=value format. An example config file, example.conf, is included to show the valid keys. The config file is supplied as an argument to varnish-webui.pl, and if omitted it will check /etc/varnish/webui.conf. If no config file is available it will use the default config, which is to run it from its own directory on port 8000. See the varnish-webui.pl source for the default values.
 
 Before using it, you must create a sqlite3 database. This can be done by issuing
 
-$ sqlite3 varnish.db < varnish_webgui.sql
+$ sqlite3 varnish.db < varnish_webui.sql
 
 Change varnish.db to the name of the file you set in the config file.
 
 Starting it
 -----------
 
-'perl start.pl' shoud do it, after reading the Configuration section and setting the values to something reasonable for your setup. If the shebang matches your perl, and the script is executable, './start.pl' should also do it.
+'perl varnish-webui.pl' should do it, optionally giving a config file as argument, after reading the Configuration section on how to configure it. If the shebang matches your perl, and the script is executable, './varnish-webui.pl' should also do it.
 
-The GUI
+The UI
 ======
 
 View stats
@@ -75,7 +78,7 @@ From 'Node management' you can manage groups and nodes. It will let you add, rem
  - the V column is the state of Varnish. Green means it responds with a 200 message to a probe (it probes http://varnish-host/), a yellow light means it anwers with a non-200 status code and a red light means it does not respond at all.
  - the M columns is the state of the management port, with green meaning OK and red meaning it is not reachable. As almost all functionality is dependent on the management port, it should never have a red light.
 
- If a health probe is defined in the VCL, a list of backend healths for the running VCL is shown as well.
+If a health probe is defined in the VCL, a list of backend healths for the running VCL is shown as well.
 
 WARNING: Adding nodes to a group, or changing the group of a node,  will replace that nodes parameter and VCL.
 

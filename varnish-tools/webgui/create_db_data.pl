@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # This script generates the database schema SQL and Varnish::DB_Data module needed
-# by the web GUI. It connects to the management port of a running Varnish and extracts
+# by the web UI. It connects to the management port of a running Varnish and extracts
 # the paramter and stat values.
 
 use strict;
@@ -119,7 +119,7 @@ INSERT INTO node_group VALUES(0, 0, 'Standalone');
 $parameter_info_sql
 END_SQL
 
-my $sql_file = "varnish_webgui.sql";
+my $sql_file = "varnish_webui.sql";
 open(my $SQL, ">$sql_file") || die "Could not open SQL output file";
 print $SQL "-- This file was auto generated " . localtime() . " by create_db_files.pl\n";
 print $SQL $sql;

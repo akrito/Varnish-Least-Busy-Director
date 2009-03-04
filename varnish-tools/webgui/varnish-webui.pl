@@ -25,7 +25,7 @@ my %default_config = (
 # 'poll_intervall' is the polling interval for the statistics
 	poll_interval		=> 5,
 
-# 'restricted' gives a restricted version of the web GUI, disabling the user
+# 'restricted' gives a restricted version of the web UI, disabling the user
 # from changing any values
 	restricted			=> 0,
 
@@ -37,7 +37,7 @@ my %default_config = (
 	large_graph_width	=> 1000,
 	large_graph_height	=> 500,
 
-# 'log_filename' is the filename to log errors and information about actions done in the GUI
+# 'log_filename' is the filename to log errors and information about actions done in the UI
 	log_filename		=> 'varnish.log',
 
 # 'db_filename' is the sqlite3 database created with the SQL outputed from create_db_data.pl
