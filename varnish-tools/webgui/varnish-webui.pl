@@ -70,6 +70,9 @@ $SIG{'PIPE'} = sub {
 #	print "Pipe ignored\n";
 };
 
+
+log_info("Initiating DB");
+Varnish::DB->init(get_config_value('db_filename'));
 log_info("Starting HTTP daemon");
 my $daemon = HTTP::Daemon->new(	LocalPort => get_config_value('port'), 
 								LocalAddr => get_config_value('address'),

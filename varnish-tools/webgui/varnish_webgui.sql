@@ -19,7 +19,7 @@ CREATE TABLE node (
 	port TEXT,
 	group_id INTEGER,
 	management_port TEXT,
-	is_master BOOLEAN
+	management_secret TEXT
 );
 
 CREATE TABLE stat (

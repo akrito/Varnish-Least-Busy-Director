@@ -57,7 +57,7 @@ use List::Util qw(first);
 		$inheritance ||= 0;
 		my $management = $node->get_management();
 		if (!$management->ping()) {
-			return set_error($self, "Could not connect to management port: "
+			return set_error("Could not connect to management port: "
 									. get_error());
 		}
 		Varnish::DB->add_node($node);
@@ -140,14 +140,23 @@ use List::Util qw(first);
 	}
 
 	sub update_node {
-		my ($self, $node) = @_;
+		my ($self, $node, $inheritance) = @_;
 
+		$inheritance ||= 0;
 		my $current = get_node($self, $node->get_id());
 		if ($current->get_group_id() != $node->get_group_id()
-			&& $node->get_group_id() > 0) {
+			&& $node->get_group_id() > 0
+			&& $inheritance) {
 			my $group = get_group($self, $node->get_group_id());
-			_clone_unit($group, $node);
+
+			if ($inheritance == 1) {
+				_clone_unit($node, $group);
+			}
+			elsif ($inheritance == 2) {
+				_clone_unit($group, $node);
+			}
 		}
+
 		Varnish::DB->update_node($node);
 	}
 

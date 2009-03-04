@@ -50,8 +50,9 @@ use Socket;
 	sub get_response_header {
 		my ($self) = @_;
 
-		return $response_header_ref_of{$self};
+		return %{$response_header_ref_of{$self}};
 	}
+
 	sub get_response_content {
 		my ($self) = @_;
 
@@ -102,6 +103,7 @@ use Socket;
 
 		my $param;
 		my $use_master_template;
+		$response_header_ref_of{$self}->{'Content-Type'} = "text/html";
 		if ($operation eq 'view_stats' || $operation eq '') {
 			($content_template, $param, $use_master_template) = view_stats(\%request_parameter);
 		}
@@ -764,6 +766,7 @@ FIND_ACTIVE_VCL:
 		$param{'address'} = $$parameter_ref{'address'} || "";
 		$param{'port'} ||= "";
 		$param{'management_port'} ||= "";
+		$param{'management_secret'} ||= "";
 		$param{'inheritance'} ||= 0;
 		$param{'edit_node'} ||= -1;
 	
@@ -782,6 +785,7 @@ FIND_ACTIVE_VCL:
 		$tmpl_var{'show_add_node'} = 1;
 		$tmpl_var{'show_node_in_backend_health'} = 1;
 		$tmpl_var{'show_inheritance_settings'} = 1;
+		$tmpl_var{'show_management_secret'} = 1;
 		$tmpl_var{'inheritance_settings'} = [];
 
 		my $error = "";
@@ -857,10 +861,17 @@ FIND_ACTIVE_VCL:
 					address			=> $param{'address'},
 					port			=> $param{'port'}, 
 					group_id		=> $param{'group_id'}, 
-					management_port	=> $param{'management_port'}
+					management_port	=> $param{'management_port'},
+					management_secret	=> $param{'management_secret'}
 				});
-				Varnish::NodeManager->add_node($node, $param{'inheritance'});
-				$status .= "Node " . $node->get_name() . " added successfully.";
+				if (Varnish::NodeManager->add_node($node, $param{'inheritance'})) {
+					$status .= "Node " . $node->get_name() . " added successfully.";
+				}
+				else {
+					$error .= "Could not add node " . $node->get_name() . ": " . get_error();
+					@tmpl_var{'new_name', 'new_address', 'new_port', 'new_management_port', 'new_management_secret'} = 
+						@param{'name', 'address', 'port', 'management_port', 'management_secret'};
+				}
 				
 				my $group = Varnish::NodeManager->get_group($param{'group_id'});
 				my $group_name = ($group ? $group->get_name() : "");
@@ -873,6 +884,7 @@ FIND_ACTIVE_VCL:
 					. " [port=" . $node->get_port() . "]"
 					. " [group=" . $group_name . "]"
 					. " [management_port=" . $node->get_management_port() . "]"
+					. " [management_port=******]"
 					. " [settings_inheritance=$inheritance]");
 			}
 			else {
@@ -880,6 +892,7 @@ FIND_ACTIVE_VCL:
 				$error .= "Name: " . $param{'name'} . ":\n"; 
 				$error .= "Address: " . $param{'address'} . ":\n"; 
 				$error .= "Port: " . $param{'port'} . ":\n"; 
+				$error .= "Management secret: ******\n";
 				$error .= "Management port: " . $param{'management_port'} . ":\n"; 
 			}
 		}
@@ -892,8 +905,9 @@ FIND_ACTIVE_VCL:
 				$node->set_port($param{'port'});
 				$node->set_group_id($param{'node_group_id'});
 				$node->set_management_port($param{'management_port'});
+				$node->set_management_secret($param{'management_secret'});
 				
-				Varnish::NodeManager->update_node($node);
+				Varnish::NodeManager->update_node($node, $param{'inheritance'});
 
 				$status .= "Node " . $node->get_name() . " updated successfully.";
 
@@ -904,6 +918,7 @@ FIND_ACTIVE_VCL:
 					. " [address=" . $node->get_address() . "]"
 					. " [port=" . $node->get_port() . "]"
 					. " [group=" . $group_name . "]"
+					. " [management_secret=******]"
 					. " [management_port=" . $node->get_management_port() . "]");
 			}
 		}
@@ -1000,6 +1015,7 @@ FIND_ACTIVE_VCL:
 					address					=> $node->get_address(),	
 					port					=> $node->get_port(),	
 					management_port			=> $node->get_management_port(),
+					management_secret		=> $node->get_management_secret() ? "******" : "",
 					group					=> $group_name,
 					edit					=> $node->get_id() == $param{'edit_node'},
 				};
@@ -1020,7 +1036,8 @@ FIND_ACTIVE_VCL:
 			$tmpl_var{'add_group'} = 1;
 		}
 
-		if ($tmpl_var{'group_id'} > 0) {
+		if ($tmpl_var{'group_id'} > 0 
+			|| $param{'edit_node'} > -1) {
 			my @inheritance_settings;
 			push @inheritance_settings, {
 				value		=>  2,
@@ -1049,6 +1066,7 @@ FIND_ACTIVE_VCL:
 			$tmpl_var{'group_name'} = $selected_group->get_name();
 		}
 		$tmpl_var{'show_group_controls'} = $tmpl_var{'group_id'} > 0;
+		$tmpl_var{'show_management_secret'} = $tmpl_var{'group_id'} >= 0;
 		$tmpl_var{'show_group'} = $tmpl_var{'group_id'} == -1 || $param{'edit_node'} > -1;
 		$tmpl_var{'show_add_node'} = $tmpl_var{'group_id'} >= 0;
 		$tmpl_var{'error'} = $error;

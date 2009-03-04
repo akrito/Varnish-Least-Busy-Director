@@ -13,6 +13,7 @@ use Varnish::DB;
 	my %group_id_of;
 	my %management_of;
 	my %management_port_of;
+	my %management_secret_of;
 	my %id_of;
 
 	sub new {
@@ -35,8 +36,10 @@ use Varnish::DB;
 			$group_id_of{$new_object} = 0;
 		}
 		$management_port_of{$new_object} = $arg_ref->{'management_port'};
+		$management_secret_of{$new_object} = $arg_ref->{'management_secret'};
 		$management_of{$new_object} = Varnish::Management->new($arg_ref->{'address'}, 
-															   $arg_ref->{'management_port'});
+															   $arg_ref->{'management_port'},
+															   $arg_ref->{'management_secret'});
 		return $new_object;
 	}
 
@@ -117,6 +120,20 @@ use Varnish::DB;
 
 		$management_port_of{$self} = $management_port;
 	}
+
+	sub get_management_secret {
+		my ($self) = @_;
+
+		return $management_secret_of{$self};
+	}
+
+	sub set_management_secret {
+		my ($self, $management_secret) = @_;
+
+		$management_secret_of{$self} = $management_secret;
+	}
+
+
 
 	sub set_id {
 		my ($self, $id) = @_;

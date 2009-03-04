@@ -43,6 +43,9 @@ document.getElementById('group_name').focus();
 <td class="header">Address</td>
 <td class="header">Port</td>
 <td class="header">Management<br/>port</td>
+<TMPL_IF NAME=SHOW_MANAGEMENT_SECRET>
+<td class="header">Management<br/>secret</td>
+</TMPL_IF>
 <TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
 <td class="header">Inheritance<br/>settings</td>
 </TMPL_IF>
@@ -91,8 +94,17 @@ value="<TMPL_VAR NAME=ID>">
 <td><input type="text" name="address" value="<TMPL_VAR NAME=ADDRESS>"/></td>
 <td><input type="text" name="port" value="<TMPL_VAR NAME=PORT>" size=5/></td>
 <td><input type="text" name="management_port" value="<TMPL_VAR NAME=MANAGEMENT_PORT>"/></td>
+<TMPL_IF NAME=SHOW_MANAGEMENT_SECRET>
+<td><input type="password" name="management_secret" value="<TMPL_VAR NAME=MANAGEMENT_SECRET>"/></td>
+</TMPL_IF>
 <TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
-<td></td>
+<td> 
+<select name="inheritance">
+<TMPL_LOOP NAME=INHERITANCE_SETTINGS>
+<option value="<TMPL_VAR NAME=VALUE>" <TMPL_IF NAME=SELECTED>selected</TMPL_IF>><TMPL_VAR NAME=NAME></option>
+</TMPL_LOOP>
+</select>
+</td>
 </TMPL_IF>
 <td>
 <input type="hidden" name="node_id" value="<TMPL_VAR NAME=ID>">
@@ -111,6 +123,9 @@ value="<TMPL_VAR NAME=ID>">
 <td><TMPL_VAR NAME=ADDRESS></td>
 <td><TMPL_VAR NAME=PORT></td>
 <td><a href="/management_console?node_id=<TMPL_VAR NAME=ID>"><TMPL_VAR NAME=MANAGEMENT_PORT></a></td>
+<TMPL_IF NAME=SHOW_MANAGEMENT_SECRET>
+<td><TMPL_VAR NAME=MANAGEMENT_SECRET></td>
+</TMPL_IF>
 <TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
 <td></td>
 </TMPL_IF>
@@ -156,13 +171,16 @@ value="<TMPL_VAR NAME=ID>">
 <input type="hidden" name="operation" value="add_node"/>
 <td></td>
 <td></td>
-<td><input type="text" name="name" id="new_node_name"/></td>
+<td><input type="text" name="name" id="new_node_name" value="<TMPL_VAR NAME=NEW_NAME>"/></td>
 <TMPL_IF NAME=SHOW_GROUP>
 <td><TMPL_VAR NAME=GROUP_NAME></td>
 </TMPL_IF>
-<td><input type="text" name="address"/></td>
-<td><input type="text" name="port" size=5/></td>
-<td><input type="text" name="management_port" value="<TMPL_VAR NAME=DEFAULT_MANAGEMENT_PORT>"/></td>
+<td><input type="text" name="address" value="<TMPL_VAR NAME=NEW_ADDRESS>"/></td>
+<td><input type="text" name="port" value="<TMPL_VAR NAME=NEW_PORT>" size=5/></td>
+<td><input type="text" name="management_port"  value="<TMPL_VAR NAME=NEW_MANAGEMENT_PORT>"/></td>
+<TMPL_IF NAME=SHOW_MANAGEMENT_SECRET>
+<td><input type="password" name="management_secret" value="<TMPL_VAR NAME=NEW_MANAGEMENT_SECRET>"/></td>
+</TMPL_IF>
 <TMPL_IF NAME=SHOW_INHERITANCE_SETTINGS>
 <td> 
 <select name="inheritance">

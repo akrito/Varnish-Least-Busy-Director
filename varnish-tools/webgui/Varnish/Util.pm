@@ -52,8 +52,11 @@ our @EXPORT = qw(
 
 	sub set_config {
 		my ($config_ref) = @_;
-
-		%config = %{$config_ref};
+			
+		my @keys = keys %$config_ref;
+		for my $key (@keys) {
+			$config{$key} = $config_ref->{$key};
+		}
 
 		if ($config{'log_filename'}) {
 			if (!open($log_handle, ">>" . $config{'log_filename'})) {
@@ -61,8 +64,6 @@ our @EXPORT = qw(
 			}
 			$log_handle->autoflush(1); # FIXME: Remove it, or is it usefull?
 		}
-
-		Varnish::DB->init($config{'db_filename'});
 	}
 
 	sub print_config {
@@ -128,7 +129,7 @@ our @EXPORT = qw(
 
 	sub set_error {
 		my ($new_error) = @_;
-
+		
 		$error = $new_error;
 
 		return;
@@ -136,7 +137,7 @@ our @EXPORT = qw(
 
 	sub get_error {
 		
-		return $error;
+		return $error ? $error : '';
 	}
 
 	sub no_error {

@@ -101,14 +101,15 @@ use Varnish::DB_Data;
 	sub add_node {
 		my ($self, $node) = @_;
 
-		my $fields = "name, address, port, group_id, management_port";
-		my $sql = "INSERT INTO node($fields) VALUES(?, ?, ?, ?, ?)";
+		my $fields = "name, address, port, group_id, management_port, management_secret";
+		my $sql = "INSERT INTO node($fields) VALUES(?, ?, ?, ?, ?, ?)";
 		$dbh->do($sql, undef,
 			$node->get_name(),
 			$node->get_address(),
 			$node->get_port(),
 			$node->get_group_id(),
-			$node->get_management_port());
+			$node->get_management_port(),
+			$node->get_management_secret());
 		$dbh->commit();
 		
 		$node->set_id($dbh->func('last_insert_rowid'));
@@ -119,9 +120,9 @@ use Varnish::DB_Data;
 	
 		my $sql = 
 			"UPDATE node SET name = ?, address = ?, port = ?, group_id = ?, "
-			. "management_port = ? where id = ?";
+			. "management_port = ?, management_secret = ? WHERE id = ?";
 		$dbh->do($sql, undef, $node->get_name, $node->get_address(), $node->get_port(),
-			$node->get_group_id(), $node->get_management_port(),
+			$node->get_group_id(), $node->get_management_port(), $node->get_management_secret(),
 			$node->get_id());
 		$dbh->commit();
 	}

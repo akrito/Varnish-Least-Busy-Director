@@ -7,19 +7,22 @@ use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use Exporter;
 use List::Util qw(first);
 use Varnish::Util qw(set_error get_error no_error);
+use Digest::SHA qw(sha256_hex);
 
 {
 	my %hostname_of;
 	my %port_of;
 	my %socket_of;
+	my %secret_of;
 
 	sub new {
-		my ($class, $hostname, $port) = @_;
+		my ($class, $hostname, $port, $secret) = @_;
 
 		my $new_object = bless \do{ my $anon_scalar; }, $class;
 
 		$hostname_of{$new_object} = $hostname;
 		$port_of{$new_object} = $port;
+		$secret_of{$new_object} = $secret;
 
 		return $new_object;
 	}
@@ -59,12 +62,27 @@ use Varnish::Util qw(set_error get_error no_error);
 
 			my $select = IO::Select->new();
 			$select->add($socket);
+			my $status_code;
+			my $response;
 			# wait 100ms, tops, before assuming we don't get a banner
 			if ($select->can_read(0.1)) {
-				_read_cli_response($socket);
+				($status_code, $response) = _read_cli_response($socket);
 			}
 			my $flags = fcntl($socket, F_GETFL, 0);
 			$flags = fcntl($socket, F_SETFL, $flags & ~O_NONBLOCK);
+					
+			if ($status_code && $status_code eq "107") {
+				my ($challenge) = ($response =~ /^(.*)$/m);
+				my $challenge_response_text =
+					"$challenge\n" . $secret_of{$self} . "\n$challenge\n";	
+
+				print $socket "auth " . sha256_hex($challenge_response_text) . "\n";
+				my ($status_code, $response) = _read_cli_response($socket);
+				if ($status_code ne "200") {
+					close($socket);
+					return ("666", "Management port authentication failed.");
+				}
+			}
 
 			$socket_of{$self} = $socket;
 		}
@@ -242,8 +260,8 @@ use Varnish::Util qw(set_error get_error no_error);
 	sub ping {
 		my ($self) = @_;
 
-		my ($status_code, $response) = _send_command($self, "stats");
-
+		my ($status_code, $response) = _send_command($self, "ping");
+		
 		return no_error($self) if ($status_code eq "200");
 		return set_error($response);
 	}
