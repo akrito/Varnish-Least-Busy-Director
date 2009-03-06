@@ -43,6 +43,9 @@ use Socket;
 		my ($self) = @_;
 
 		delete $request_ref_of{$self};
+		delete $response_content_ref_of{$self};
+		delete $response_header_ref_of{$self};
+		delete $master_tmpl_var_of{$self};
 
 		return;
 	}
@@ -520,6 +523,7 @@ FIND_ACTIVE_VCL:
 			};
 
 			if (!$tmpl_var{'stat_time'}) {
+				$stat_time ||= 0;
 				$tmpl_var{'stat_time'} = strftime("%a %b %e %H:%M:%S %Y", localtime($stat_time));
 			}
 			

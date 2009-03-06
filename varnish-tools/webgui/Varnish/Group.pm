@@ -24,6 +24,14 @@ use Varnish::Util;
 		return $new_object;
 	}
 
+	sub DESTROY {
+		my ($self) = @_;
+
+		delete $id_of{$self};
+		delete $name_of{$self};
+		delete $active_vcl_of{$self};
+	}
+
 	sub get_id {
 		my ($self) = @_;
 

@@ -27,6 +27,16 @@ use Digest::SHA qw(sha256_hex);
 		return $new_object;
 	}
 
+	sub DESTROY {
+		my ($self) = @_;
+
+		delete $hostname_of{$self};
+		delete $port_of{$self};
+		close();
+		delete $socket_of{$self};
+		delete $secret_of{$self};
+	}
+
 	sub _read_cli_response {
 		my ($socket) = @_;
 		

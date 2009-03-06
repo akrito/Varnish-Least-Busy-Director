@@ -47,6 +47,15 @@ use Varnish::DB;
 		my ($self) = @_;
 
 		$management_of{$self}->close();
+
+		delete $id_of{$self};
+		delete $name_of{$self};
+		delete $address_of{$self};
+		delete $port_of{$self};
+		delete $group_id_of{$self};
+		delete $management_of{$self};
+		delete $management_port_of{$self};
+		delete $management_secret_of{$self};
 	}
 
 	sub get_id {
