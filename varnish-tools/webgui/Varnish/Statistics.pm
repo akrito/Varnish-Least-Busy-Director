@@ -139,7 +139,7 @@ use Varnish::DB;
 				}
 
 				if ($use_delta) {
-					if (!$last_value) {
+					if (!defined($last_value)) {
 						$last_value = $value;
 						$last_dividend = $dividend_value;
 						$last_divisor = $divisor_value;
