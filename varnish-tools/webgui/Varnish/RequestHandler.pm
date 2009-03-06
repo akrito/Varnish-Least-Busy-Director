@@ -529,11 +529,11 @@ FIND_ACTIVE_VCL:
 			
 			# example of adding graph the graph ID must match that of a predefind graph
 			# which is created in generate_graph found around line 826
-			push @{$summary_stat_list{'Hit ratio since start'}}, {
+			push @{$summary_stat_list{'Backend connections failures'}}, {
 				is_graph 	=> 1,
 				unit_id 	=> $unit_id,
 				is_node 	=> $is_node,
-				graph_id 	=> 'cache_hit_ratio_since_start',
+				graph_id 	=> 'backend_connections_failures',
 			};
 			push @{$summary_stat_list{'Hit ratio'}}, {
 				is_graph 	=> 1,
@@ -1129,6 +1129,15 @@ FIND_ACTIVE_VCL:
 				# if use_delta is set to 1, the derived value is used, i.e. the difference
 				# in value between two measurements. This is usefull for graphs showing rates
 				# like this connect rate
+				use_delta			=> 1,
+			},
+			backend_connections_failures	=> {
+				graph_parameter	=> {
+					y_label			=> 'Failures',
+					title			=> "Backend conn failures / s last " . $param{'time_span'},
+					y_min_value		=> 0,
+				},
+				divisors			=> [ 'Backend connections failures' ],
 				use_delta			=> 1,
 			},
 			cache_hit_ratio 	=> {
