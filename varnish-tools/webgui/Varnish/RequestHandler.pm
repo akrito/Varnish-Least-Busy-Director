@@ -535,6 +535,12 @@ FIND_ACTIVE_VCL:
 				is_node 	=> $is_node,
 				graph_id 	=> 'backend_connections_failures',
 			};
+			push @{$summary_stat_list{'Backend requests'}}, {
+				is_graph 	=> 1,
+				unit_id 	=> $unit_id,
+				is_node 	=> $is_node,
+				graph_id 	=> 'backend_requests',
+			};
 			push @{$summary_stat_list{'Hit ratio'}}, {
 				is_graph 	=> 1,
 				unit_id 	=> $unit_id,
@@ -1137,9 +1143,19 @@ FIND_ACTIVE_VCL:
 					y_label			=> 'Failures',
 					title			=> "Backend conn failures / s last " . $param{'time_span'},
 					y_min_value		=> 0,
-					y_number_format	=> Varnish::Util::get_formatted_number,
+					y_number_format	=> sub { return Varnish::Util::get_formatted_number($_[0]) },
 				},
 				divisors			=> [ 'Backend connections failures' ],
+				use_delta			=> 1,
+			},
+			backend_requests	=> {
+				graph_parameter	=> {
+					y_label			=> 'Reqs',
+					title			=> "Backend reqs / s last " . $param{'time_span'},
+					y_min_value		=> 0,
+					y_number_format	=> sub { return Varnish::Util::get_formatted_number($_[0]) },
+				},
+				divisors			=> [ 'Backend requests made' ],
 				use_delta			=> 1,
 			},
 			cache_hit_ratio 	=> {
