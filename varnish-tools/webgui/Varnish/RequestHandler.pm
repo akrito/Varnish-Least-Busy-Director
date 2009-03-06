@@ -452,7 +452,7 @@ FIND_ACTIVE_VCL:
 		$tmpl_var{'summary_stats'} = [];
 		$tmpl_var{'raw_stats'} = [];
 		$tmpl_var{'auto_refresh'} = $param{'toggle_auto_refresh'} ? 1 - $param{'auto_refresh'} : $param{'auto_refresh'};
-		$tmpl_var{'auto_refresh_interval'} = $tmpl_var{'auto_refresh'} ? get_config_value('poll_interval') : 0;
+		$tmpl_var{'auto_refresh_interval'} = $tmpl_var{'auto_refresh'} ? 15 : 0;
 		$tmpl_var{'view_raw_stats'} = $param{'view_raw_stats'};
 		$tmpl_var{'graph_width'} = get_config_value('graph_width');
 		$tmpl_var{'graph_height'} = get_config_value('graph_height');
@@ -1085,7 +1085,7 @@ FIND_ACTIVE_VCL:
 		my %param = %{$parameter_ref};
 		$param{'width'} ||= get_config_value('graph_width');
 		$param{'height'} ||= get_config_value('graph_height');
-		$param{'time_span'} ||= "minute";
+		$param{'time_span'} ||= "quarter";
 		$param{'unit_id'} ||= -1;
 		$param{'custom_name'} ||= "";
 		$param{'custom_divisors'} ||= "";
@@ -1107,7 +1107,7 @@ FIND_ACTIVE_VCL:
 					title			=> 'Cache hit ratio since start',
 					y_max_value		=> 1,
 					#y_min_value		=> 0,
-					y_number_format	=> sub { return sprintf("%.2f", $_[0] * 100) }
+					y_number_format	=> sub { return Varnish::Util::get_formatted_number($_[0]) },
 				},
 				# the divisors and dividends are lists of names of the statistics to
 				# use when calculating the values in the graph. The names can be obtained
@@ -1123,6 +1123,7 @@ FIND_ACTIVE_VCL:
 					y_label			=> 'Reqs',
 					title			=> "Reqs / s last " . $param{'time_span'},
 					y_min_value		=> 0,
+					y_number_format	=> sub { return Varnish::Util::get_formatted_number($_[0]) },
 				},
 				# here we have no dividends as we only want to plot 'Client requests received'
 				divisors			=> [ 'Client requests received' ],
@@ -1136,6 +1137,7 @@ FIND_ACTIVE_VCL:
 					y_label			=> 'Failures',
 					title			=> "Backend conn failures / s last " . $param{'time_span'},
 					y_min_value		=> 0,
+					y_number_format	=> Varnish::Util::get_formatted_number,
 				},
 				divisors			=> [ 'Backend connections failures' ],
 				use_delta			=> 1,
@@ -1162,6 +1164,7 @@ FIND_ACTIVE_VCL:
 					title			=> $param{'custom_name'} .
 									($param{'custom_delta'} ? " / s " : "") 
 										.  " last " . $param{'time_span'},
+					y_number_format	=> sub { return Varnish::Util::get_formatted_number($_[0]) },
 				},
 				use_delta		=> $param{'custom_delta'},
 			},
@@ -1175,6 +1178,11 @@ FIND_ACTIVE_VCL:
 				x_number_format	=> sub { return strftime("%H:%M:%S", localtime($_[0])); },
 			},
 			hour	=> {
+				x_label			=> 'Time',
+				x_tick_number	=> 6 * $x_tick_factor, # need to be set to make x_number_format work
+				x_number_format	=> sub { return strftime("%H:%M", localtime($_[0])); },
+			},
+			quarter	=> {
 				x_label			=> 'Time',
 				x_tick_number	=> 6 * $x_tick_factor, # need to be set to make x_number_format work
 				x_number_format	=> sub { return strftime("%H:%M", localtime($_[0])); },

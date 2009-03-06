@@ -68,6 +68,7 @@ use Varnish::DB;
 		
 		my %seconds_for = (
 			minute	=> 60,
+			quarter	=> 900,
 			hour	=> 3600,
 			day		=> 86400,
 			week	=> 604800,	

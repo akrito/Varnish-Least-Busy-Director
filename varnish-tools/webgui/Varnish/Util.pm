@@ -15,6 +15,7 @@ our @EXPORT = qw(
 				read_file
 				get_formatted_percentage
 				get_formatted_bytes
+				get_formatted_number
 				get_db_friendly_name 
 				get_error
 				set_error
@@ -95,25 +96,32 @@ our @EXPORT = qw(
 		return $dividend > 0 ? sprintf( "%.2f", 100 * ($divisor / $dividend)) : "inf";
 	}
 
+	
 	# thanks to foxdie at #varnish for php snippet
-	sub get_formatted_bytes {
-		my ($bytes) = @_;
+	sub get_formatted_number {
+		my ($number) = @_;
         
-		if ($bytes > 1099511627776) {
-			return sprintf( "%.3f TB", $bytes / 1099511627776);
+		if ($number > 1099511627776) {
+			return sprintf( "%.3fT", $number / 1099511627776);
         }
-        elsif ($bytes > 1073741824) {
-			return sprintf( "%.3f GB", $bytes / 1073741824);
+        elsif ($number > 1073741824) {
+			return sprintf( "%.3fG", $number / 1073741824);
         }
-        elsif ($bytes > 1048576) {
-			return sprintf( "%.3f MB", $bytes / 1048576);
+        elsif ($number> 1048576) {
+			return sprintf( "%.3fM", $number / 1048576);
         }
-        elsif ($bytes > 1024) {
-			return sprintf( "%.3f KB", $bytes / 1024);
+        elsif ($number> 1024) {
+			return sprintf( "%.3fK", $number / 1024);
         }
         else {
-			return $bytes . " B";
+			return $number;
         }
+	}
+
+	sub get_formatted_bytes {
+		my ($number) = @_;
+
+		return get_formatted_number($number) . "B";
 	}
 
 	sub get_db_friendly_name {

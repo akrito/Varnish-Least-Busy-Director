@@ -107,12 +107,13 @@ src="images/stopped.png"
 <a id="large_link_<TMPL_VAR NAME=UNIT_ID>_<TMPL_VAR NAME=IS_NODE>_<TMPL_VAR NAME=GRAPH_ID>" href=""><img width="<TMPL_VAR NAME=GRAPH_WIDTH>" height="<TMPL_VAR NAME=GRAPH_HEIGHT>" id="img_<TMPL_VAR NAME=UNIT_ID>_<TMPL_VAR NAME=IS_NODe>_<TMPL_VAR NAME=GRAPH_ID>" src=""/></a><br/>
 Last: 
 <a class="timeSpan" href="javascript:loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'minute')">Mi</a>
+<a class="timeSpan" href="javascript:loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'quarter')">Q</a>
 <a class="timeSpan" href="javascript:loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'hour')">H</a>
 <a class="timeSpan" href="javascript:loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'day')">D</a>
 <a class="timeSpan" href="javascript:loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'week')">W</a>
 </div>
 <script type="text/javascript">
-loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'minute');
+loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=GRAPH_ID>', 'quarter');
 </script>
 <TMPL_ELSE>
 <TMPL_VAR NAME=VALUE>
@@ -135,7 +136,7 @@ loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=
 <td><TMPL_VAR NAME=NAME></td>
 <TMPL_LOOP NAME=VALUES>
 <td>
-<a href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>','<TMPL_VAR NAME=IS_NODE>','<TMPL_VAR NAME=NAME>', 'minute', 0)">
+<a href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>','<TMPL_VAR NAME=IS_NODE>','<TMPL_VAR NAME=NAME>', 'quarter', 0)">
 <TMPL_VAR NAME=VALUE>
 </a>
 <div class="graph" id="graph_<TMPL_VAR NAME=UNIT_ID>_<TMPL_VAR NAME=IS_NODE>_<TMPL_VAR NAME=NAME>_raw" style="display: none">
@@ -145,11 +146,13 @@ loadGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=
 </a><br/>
 Last: 
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'minute', 0)">Mi</a>
+<a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'quarter', 0)">Q</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'hour', 0)">H</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'day', 0)">D</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'week', 0)">W</a><br/>
 Delta: 
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'minute', 1)">Mi</a>
+<a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'quarter', 1)">Q</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'hour', 1)">H</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'day', 1)">D</a>
 <a class="timeSpan" href="javascript:loadRawGraph('<TMPL_VAR NAME=UNIT_ID>', '<TMPL_VAR NAME=IS_NODE>', '<TMPL_VAR NAME=NAME>', 'week', 1)">W</a>
