@@ -322,8 +322,17 @@ use Varnish::DB_Data;
 
 	sub get_parameter_info {
 		my ($self) = @_;
+		
+		my $sql = "SELECT name, unit, description FROM parameter_info";
+		my $sth = $dbh->prepare($sql);
+		$sth->execute();
+		my %parameter_info;
+		while (my $info_ref = $sth->fetchrow_arrayref()) {
+			$parameter_info{$info_ref->[0]} = 
+				{unit => $info_ref->[1], description => $info_ref->[2]} ;
+		}
 
-		return $dbh->selectall_hashref("SELECT * FROM parameter_info", 1);
+		return \%parameter_info;
 	}
 
 	sub get_vcl_infos {
