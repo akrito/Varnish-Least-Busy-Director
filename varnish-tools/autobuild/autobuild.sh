@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-# Copyright (c) 2007-2008 Linpro AS
+# Copyright (c) 2007-2009 Linpro AS
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

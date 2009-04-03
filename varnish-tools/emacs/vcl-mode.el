@@ -1,6 +1,6 @@
 ;;; vcl-mode.el - Syntax highlighting for Varnish Command Language
 ;;; 
-;;; Copyright (c) 2008 Linpro AS
+;;; Copyright (c) 2008-2009 Linpro AS
 ;;; All rights reserved.
 ;;;
 ;;; Author: Stig Sandbeck Mathisen <ssm@linpro.no>
