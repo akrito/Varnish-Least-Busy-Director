@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 #-
 # Copyright (c) 2007-2009 Linpro AS
+# Copyright (c) 2009 Dag-Erling Coïdan Smørgrav
 # All rights reserved.
 #
 # Author: Dag-Erling Smørgrav <des@des.no>
@@ -35,6 +36,8 @@ our $VERSION = '$Id$';
 package Varnish::Fetcher;
 
 use strict;
+use File::Basename;
+use File::Path;
 use Getopt::Long qw(:config bundling require_order auto_version);
 use IO::Handle;
 use IO::Multiplex;
@@ -43,7 +46,7 @@ use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use URI;
 
-our %URLS;
+our %URI;
 our %BANNED;
 our @TODO;
 our %CHILD;
@@ -55,6 +58,7 @@ our $delay = 0;
 our $jobs = 1;
 our $quiet = 0;
 our $random = 0;
+our $save = 0;
 
 our $url_re = qr{
     \b(?:href|src)=[\'\"]\s*
@@ -71,7 +75,20 @@ sub new($$) {
 	'mux' => $mux,
 	'fh' => $fh,
 	'url' => undef,
+	'uri' => undef,
     };
+}
+
+sub info(@) {
+
+    print(STDOUT "[$$] ", join(' ', @_), "\n")
+	unless ($quiet);
+}
+
+sub error(@) {
+
+    print(STDERR "[$$] ", join(' ', @_), "\n")
+	unless ($quiet);
 }
 
 # Child
@@ -97,8 +114,7 @@ sub run($$) {
 	    next;
 	}
 	$0 = "[fetcher] requesting $url";
-	print(STDERR "Retrieving $url\n")
-	    unless ($quiet > 1);
+	info("Retrieving $url");
 	my $resp = $ua->get($url);
 	if ($check) {
 	    $0 = "[fetcher] checking $url";
@@ -106,19 +122,39 @@ sub run($$) {
 		$s->write("ban $url\n");
 		$url = $resp->header('Location') ||
 		    $resp->header('Content-Location');
+		info("Redirected to $url");
 		$s->write("add $url\n")
 		    if $url;
 	    } elsif ($resp->is_success()) {
 		if ($resp->header('Content-Type') =~ m/^text\//) {
-		    my %urls = map { $_ => 1 } ($resp->content =~ m/$url_re/g);
+		    my %urls = map({ $_ => 1 } ($resp->content =~ m/$url_re/g));
 		    foreach (keys(%urls)) {
 			$s->write("add $_\n");
 		    }
 		}
+		if ($save && $url !~ m/\/$/) {
+		    my $uri = URI->new($url);
+		    my $path = "." . $uri->path;
+		    my $dir = dirname($path);
+		    eval {
+			mkpath($dir);
+			if (open(my $fh, ">", $path)) {
+			    info("Saving $url to $path");
+			    print($fh $resp->content);
+			    close($fh);
+			} else {
+			    die("open($path): $!\n");
+			}
+		    };
+		    if ($@) {
+			print(STDERR $@);
+		    }
+		}
 	    } elsif ($resp->is_error()) {
-		# XXX should we ban these?
+		error("Failed to retrieve $url");
+		$s->write("ban $url\n");
 	    } else {
-		print(STDERR "Unsupported response type:",
+		error("Unsupported response type:",
 		    $resp->status_line(), "\n");
 	    }
 	}
@@ -148,6 +184,7 @@ sub send_url($) {
 	unless (@TODO);
     my $url = shift(@TODO);
     $$child{'url'} = $url;
+    $$child{'uri'} = $URI{$url};
     $$child{'fh'}->write("$url\n");
     ++$BUSY;
 }
@@ -161,7 +198,7 @@ sub ban_url($$) {
     my $uri = URI->new_abs($1, $$child{'url'});
     $url = $uri->canonical;
     $BANNED{$url} = 1;
-    delete $URLS{$url};
+    delete $URI{$url};
     print(STDERR "Banned $url\n")
 	unless ($quiet > 2);
 }
@@ -174,15 +211,23 @@ sub get_url($$) {
 	unless $$child{'url'};
     my $uri = URI->new_abs($1, $$child{'url'});
     $url = $uri->canonical;
-    # XXX should cache child URI to avoid new() here
-    if ($BANNED{$url} || $uri->scheme() ne 'http' ||
-	$uri->host_port() ne URI->new($$child{'url'})->host_port()) {
-	print(STDERR "Rejected $url\n")
-	    unless ($quiet > 0);
+    if ($BANNED{$url}) {
+	info("Rejected (banned): $url");
 	return;
     }
-    return if $URLS{$url};
-    $URLS{$url} = 1;
+    if ($uri->scheme() ne 'http') {
+	info("Rejected (not HTTP): $url");
+	return;
+    }
+    if ($uri->host_port() ne $$child{'uri'}->host_port()) {
+	info("Rejected (other server): $url");
+    }
+    if (index($url, $$child{'url'}) != 0) {
+	info("Rejected (upstream): $url");
+	return;
+    }
+    return if $URI{$url};
+    $URI{$url} = $uri;
     push(@TODO, $url);
 }
 
@@ -197,6 +242,7 @@ sub mux_input($$$$) {
 	my $line = $1;
 	if ($line eq "ready") {
 	    $$child{'url'} = '';
+	    $$child{'uri'} = undef;
 	    --$BUSY;
 	    ++$DONE;
 	    $mux->endloop();
@@ -250,7 +296,10 @@ sub harvest(@) {
 
     # prepare work queue
     foreach my $url (@urls) {
-	push(@TODO, URI->new($url)->canonical);
+	my $uri = URI->new($url);
+	$url = $uri->canonical;
+	$URI{$url} = $uri;
+	push(@TODO, $url);
     }
 
     $DONE = 0;
@@ -260,7 +309,7 @@ sub harvest(@) {
 		unless $$child{'url'};
 	}
 	printf(STDERR " %d/%d \r",
-	       int(keys(%URLS)) - @TODO, int(keys(%URLS)))
+	       int(keys(%URI)) - @TODO, int(keys(%URI)))
 	    unless ($quiet > 3);
 	last unless $BUSY;
 	$mux->loop();
@@ -279,7 +328,7 @@ sub summarize($$$) {
 sub fetch_random() {
 
     my $t0 = [gettimeofday()];
-    my @urls = keys(%URLS);
+    my @urls = keys(%URI);
     @TODO = @urls;
     $DONE = 0;
 
@@ -304,7 +353,7 @@ sub fetch_sequential() {
 
     my $t0 = [gettimeofday()];
     for (;;) {
-	@TODO = keys(%URLS);
+	@TODO = keys(%URI);
 	$DONE = 0;
 
 	while (@TODO) {
@@ -312,13 +361,13 @@ sub fetch_sequential() {
 		$child->send_url()
 		    unless $$child{'url'};
 	    }
-	    printf(STDERR " %d/%d \r", $DONE, int(keys(%URLS)))
+	    printf(STDERR " %d/%d \r", $DONE, int(keys(%URI)))
 		unless ($quiet > 3);
 	    last unless $BUSY;
 	    $mux->loop();
 	}
 	my $t1 = [gettimeofday()];
-	summarize(int(keys(%URLS)), $t0, $t1);
+	summarize(int(keys(%URI)), $t0, $t1);
 	$t0 = $t1;
     }
 }
@@ -331,7 +380,7 @@ sub fetcher(@) {
     my $t0 = [gettimeofday()];
     harvest(@urls);
     my $t1 = [gettimeofday()];
-    summarize(int(keys(%URLS)), $t0, $t1);
+    summarize(int(keys(%URI)), $t0, $t1);
 
     foreach my $child (values(%CHILD)) {
 	$child->send("no check");
@@ -357,7 +406,8 @@ MAIN:{
 	       "d|delay=i" => \$delay,
 	       "j|jobs=i" => \$jobs,
 	       "q|quiet+" => \$quiet,
-	       "r|random!" => \$random)
+	       "r|random!" => \$random,
+	       "s|save-files!" => \$save)
 	or usage();
     $jobs > 0
 	or usage();
