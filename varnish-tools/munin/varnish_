@@ -18,27 +18,71 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
-##########
-# Parameteres: 
-#	
-#	config (required)
-#	autoconf (optional - used by munin-conf)
-#	suggest (optional - used by munin-conf to determine valid symlinks)
-#
-# A few aspects are not linked by default. They are marked as 
-# 'DEBUG' => 'yes' (or any other value). They are:
-#
-# data_structures, vcl_and_purges, lru, objects_per_objhead,
-# obj_sendfile_vs_write, losthdr, esi, hcb, shm, shm_writes, overflow,
-# session, session_herd
-#
-# You can link them yourself with something like this:
-# ln -s /foo/varnish_ /etc/munin/plugins/varnish_data_structures
-#
-# Magic markers: Optional but should be included.
-#%# family=auto
-#%# capabilities=autoconf suggest
+
+=head1 NAME
+
+varnish_ - Munin plugin to monitor various aspects of varnish
+
+=head1 APPLICABLE SYSTEMS
+
+Varnish 2.0 or newer with varnishstat
+
+=head1 CONFIGURATION
+
+The plugin needs to be able to execute varnishstat. 
+
+The configuration section shows the defaults
+  [varnish_*]
+     env.varnishstat varnishstat
+     env.name 
+
+env.varnishstat can be a full path to varnishstat if it's
+not in the path already. 
+
+env.name is blank (undefined) by default and can be used to specify a -l
+name argument to varnish if multiple instances are running on the same
+server.
+
+A few aspects are not linked by default. They are marked as 
+'DEBUG' => 'yes' (or any other value). They are:
+
+data_structures, vcl_and_purges, lru, objects_per_objhead,
+obj_sendfile_vs_write, losthdr, esi, hcb, shm, shm_writes, overflow,
+session, session_herd
+
+You can link them yourself with something like this:
+ln -s /foo/varnish_ /etc/munin/plugins/varnish_data_structures
+
+=head1 INTERPERTATION
+
+Each graph uses data from varnishstat.
+
+=head1 MAGIC MARKERS
+
+ #%# family=auto
+ #%# capabilities=autoconf suggest
+
+=head1 VERSION
+
+ $Id$
+
+=head1 BUGS
+
+The hit_rate graph requires munin r2040 or newer to display
+correctly.
+
+=head1 AUTHOR
+
+Kristian Lyngstol <kristian@redpill-linpro.com>
+
+=head1 LICENSE
+
+GPLv2
+
+=cut 
+
+# FIXME: License?
+
 
 use strict;
 
@@ -50,7 +94,10 @@ my $DEBUG = 0;
 my $FULL_SUGGEST = 0;
 
 # Varnishstat executable. Include full path if it's not in your path.
-my $varnishstat = "varnishstat";
+my $varnishstatexec = exists $ENV{'varnishstat'} ? $ENV{'varnishstat'} : "varnishstat";
+
+# For multiple instances
+my $varnishname = exists $ENV{'name'} ? $ENV{'name'} : undef;
 
 my %varnishstat = ();
 my %varnishstatnames = ();
@@ -593,7 +640,11 @@ my %ASPECTS = (
 # descriptions.
 sub populate_stats
 {
-	foreach my $line (`$varnishstat -1`) {
+	my $arg = "-1";
+	if ($varnishname) {
+		$arg .= " -l $varnishname";
+	} 
+	foreach my $line (`$varnishstatexec $arg`) {
 		chomp($line);
 		if ($line =~ /^([^ ]*)\s+(\d+)\s+(\d*\.\d*)\s+(.*)$/) {
 			$varnishstat{"$1"} = $2;
@@ -617,8 +668,8 @@ sub usage
 # Otherwise exit with false and a human-readable reason.
 sub autoconf
 {
-	if (`which $varnishstat` eq '') {
-		print "no (which $varnishstat returns blank)\n";
+	if (`which $varnishstatexec` eq '') {
+		print "no (which $varnishstatexec returns blank)\n";
 		exit 1;
 	}
 	print "yes\n";
