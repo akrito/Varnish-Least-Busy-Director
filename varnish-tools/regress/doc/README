@@ -1,4 +1,0 @@
-VARNISH REGRESSION TEST FRAMEWORK
-
-This is a regression test framework written in Perl. It is being
-tailored to the needs of the Varnish HTTP accelerator.
