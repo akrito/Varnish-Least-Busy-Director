@@ -37,6 +37,43 @@ MODULE = Varnish::API		PACKAGE = Varnish::API
 
 INCLUDE: const-xs.inc
 
+
+unsigned int
+SHMLOG_ID(logentry)
+	SV* logentry;
+	CODE:
+	RETVAL = SHMLOG_ID((unsigned char*) SvPVbyte_nolen(logentry));
+	OUTPUT:
+	RETVAL
+
+unsigned int
+SHMLOG_LEN(logentry)
+	SV* logentry
+	CODE:
+	RETVAL = SHMLOG_LEN((unsigned char*) SvPVbyte_nolen(logentry));
+	OUTPUT:
+	RETVAL
+
+unsigned int
+SHMLOG_TAG(logentry)
+	unsigned char* logentry
+	CODE:
+	enum shmlogtag tag;
+	tag = logentry[SHMLOG_TAG];
+	RETVAL = tag;
+	OUTPUT:
+	RETVAL
+
+
+
+char*
+SHMLOG_DATA(logentry)
+	unsigned char* logentry
+	CODE:
+	RETVAL = logentry + SHMLOG_DATA;
+	OUTPUT:
+	RETVAL
+
 char*
 VSL_tags(tag)
 	int tag
@@ -69,10 +106,11 @@ SV*
 VSL_NextLog(vd)
 	SV* vd;
 	PPCODE:
+	STRLEN strlen;
 	struct VSL_data* data = (struct VSL_data*) SvIV(vd);
 	unsigned char *p;
 	VSL_NextLog(data, &p);
-	ST(0) = newSVpv(p,SHMLOG_NEXTTAG + SHMLOG_LEN(p));
+	ST(0) = newSVpv(p, SHMLOG_DATA + SHMLOG_LEN(p));
 	sv_2mortal(ST(0));
 	XSRETURN(1);
 	
