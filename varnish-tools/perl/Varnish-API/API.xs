@@ -37,11 +37,13 @@ MODULE = Varnish::API		PACKAGE = Varnish::API
 
 INCLUDE: const-xs.inc
 
-int
-VSL_Arg(vd, arg, opt)
-	struct VSL_data *	vd
-	int	arg
-	const char *	opt
+char*
+VSL_tags(tag)
+	int tag
+	CODE:
+	RETVAL = (char*) VSL_tags[tag];
+	OUTPUT:
+	RETVAL
 
 int
 VSL_Dispatch(vd, func)
