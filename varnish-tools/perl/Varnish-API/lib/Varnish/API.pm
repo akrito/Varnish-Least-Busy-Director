@@ -77,7 +77,7 @@ our @EXPORT = qw(
 	V_DEAD
 );
 
-our $VERSION = '0.01';
+our $VERSION = '1.99';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -115,125 +115,47 @@ __END__
 
 =head1 NAME
 
-Varnish::API - Perl extension for blah blah blah
+Varnish::API - Perl extension for accessing varnish stats and logs
 
 =head1 SYNOPSIS
 
   use Varnish::API;
-  blah blah blah
+  use Sys::Hostname qw(hostname);
+
+  my $vd = Varnish::API::VSL_New();
+  Varnish::API::VSL_OpenLog($vd, hostname);
+
+  Varnish::API::VSL_Dispatch($vd, 
+    sub { my ($tag, $id, $spec, $text) = @_; return 1 });
+
+  my $log = Varnish::API::VSL_NextLog($vd);
+  my $tag = Varnish::API::VSL_tags(Varnish::API::SHMLOG_TAG($log));
+  my $fd  = Varnish::API::SHMLOG_ID($log);
+  my $text = Varnish::API::SHMLOG_DATA($log);
+
+  my $stats = Varnish::API::VSL_OpenStats(hostname);
+  my $fields = Varnish::API::VSL_GetStatFieldTypes();
+  my $description = Varnish::API::VSL_GetStatFieldDescriptions();
+  my $client_conn = Varnish::API::VSL_GetStat($stats, "client_conn");
+
 
 =head1 DESCRIPTION
 
-Stub documentation for Varnish::API, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
-
-Blah blah blah.
+This module allows access to the data that varnishlog and varnishstats can read.
 
 =head2 EXPORT
 
 None by default.
 
-=head2 Exportable constants
-
-  VSL_S_BACKEND
-  VSL_S_CLIENT
-  V_DEAD
-
-=head2 Exportable functions
-
-  int VSL_Arg(struct VSL_data *vd, int arg, const char *opt)
-  int VSL_Dispatch(struct VSL_data *vd, vsl_handler *func, void *priv)
-  const char *VSL_Name(void)
-  struct VSL_data *VSL_New(void)
-  int VSL_NextLog(struct VSL_data *lh, unsigned char **pp)
-  void VSL_NonBlocking(struct VSL_data *vd, int nb)
-  int VSL_OpenLog(struct VSL_data *vd, const char *varnish_name)
-  struct varnish_stats *VSL_OpenStats(const char *varnish_name)
-  void VSL_Select(struct VSL_data *vd, unsigned tag)
-  char *asctime (__const struct tm *__tp) __attribute__ ((__nothrow__))
-  char *asctime_r (__const struct tm *__restrict __tp,
-   char *__restrict __buf) __attribute__ ((__nothrow__))
-  int base64_decode(char *d, unsigned dlen, const char *s)
-  void base64_init(void)
-  clock_t clock (void) __attribute__ ((__nothrow__))
-  int clock_getcpuclockid (pid_t __pid, clockid_t *__clock_id) __attribute__ ((__nothrow__))
-  int clock_getres (clockid_t __clock_id, struct timespec *__res) __attribute__ ((__nothrow__))
-  int clock_gettime (clockid_t __clock_id, struct timespec *__tp) __attribute__ ((__nothrow__))
-  int clock_nanosleep (clockid_t __clock_id, int __flags,
-       __const struct timespec *__req,
-       struct timespec *__rem)
-  int clock_settime (clockid_t __clock_id, __const struct timespec *__tp)
-     __attribute__ ((__nothrow__))
-  char *ctime (__const time_t *__timer) __attribute__ ((__nothrow__))
-  char *ctime_r (__const time_t *__restrict __timer,
-        char *__restrict __buf) __attribute__ ((__nothrow__))
-  double difftime (time_t __time1, time_t __time0)
-     __attribute__ ((__nothrow__)) __attribute__ ((__const__))
-  int dysize (int __year) __attribute__ ((__nothrow__)) __attribute__ ((__const__))
-  struct tm *getdate (__const char *__string)
-  int getdate_r (__const char *__restrict __string,
-        struct tm *__restrict __resbufp)
-  struct tm *gmtime (__const time_t *__timer) __attribute__ ((__nothrow__))
-  struct tm *gmtime_r (__const time_t *__restrict __timer,
-       struct tm *__restrict __tp) __attribute__ ((__nothrow__))
-  struct tm *localtime (__const time_t *__timer) __attribute__ ((__nothrow__))
-  struct tm *localtime_r (__const time_t *__restrict __timer,
-          struct tm *__restrict __tp) __attribute__ ((__nothrow__))
-  time_t mktime (struct tm *__tp) __attribute__ ((__nothrow__))
-  int nanosleep (__const struct timespec *__requested_time,
-        struct timespec *__remaining)
-  int stime (__const time_t *__when) __attribute__ ((__nothrow__))
-  size_t strftime (char *__restrict __s, size_t __maxsize,
-   __const char *__restrict __format,
-   __const struct tm *__restrict __tp) __attribute__ ((__nothrow__))
-  size_t strftime_l (char *__restrict __s, size_t __maxsize,
-     __const char *__restrict __format,
-     __const struct tm *__restrict __tp,
-     __locale_t __loc) __attribute__ ((__nothrow__))
-  char *strptime (__const char *__restrict __s,
-         __const char *__restrict __fmt, struct tm *__tp)
-     __attribute__ ((__nothrow__))
-  char *strptime_l (__const char *__restrict __s,
-    __const char *__restrict __fmt, struct tm *__tp,
-    __locale_t __loc) __attribute__ ((__nothrow__))
-  time_t time (time_t *__timer) __attribute__ ((__nothrow__))
-  time_t timegm (struct tm *__tp) __attribute__ ((__nothrow__))
-  time_t timelocal (struct tm *__tp) __attribute__ ((__nothrow__))
-  int timer_create (clockid_t __clock_id,
-    struct sigevent *__restrict __evp,
-    timer_t *__restrict __timerid) __attribute__ ((__nothrow__))
-  int timer_delete (timer_t __timerid) __attribute__ ((__nothrow__))
-  int timer_getoverrun (timer_t __timerid) __attribute__ ((__nothrow__))
-  int timer_gettime (timer_t __timerid, struct itimerspec *__value)
-     __attribute__ ((__nothrow__))
-  int timer_settime (timer_t __timerid, int __flags,
-     __const struct itimerspec *__restrict __value,
-     struct itimerspec *__restrict __ovalue) __attribute__ ((__nothrow__))
-  void tzset (void) __attribute__ ((__nothrow__))
-  int varnish_instance(const char *n_arg, char *name, size_t namelen, char *dir,
-    size_t dirlen)
-
-
-
 =head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
 
 =head1 AUTHOR
 
-A. U. Thor, E<lt>artur@E<gt>
+Artur Bergman E<lt>sky+cpan@crucially.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2009 by A. U. Thor
+Copyright (C) 2009 by Artur Bergman
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,
