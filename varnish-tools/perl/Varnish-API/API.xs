@@ -32,11 +32,70 @@ dispatch_callback(void *priv, enum shmlogtag tag, unsigned fd, unsigned len,
     return (rv);
 }
 
+
+SV*
+get_field_type() {
+		 dTHX;
+	     HV* fields;
+	     fields = newHV();
+#define MAC_STAT(type, l, field, description)	\
+	{ \
+	  char * tmp = #field; \
+	  hv_store(fields, #type, strlen(#type), newSVpv(&tmp[1], 1),0); \
+		}\
+		
+#include <varnish/stat_field.h>
+#undef MAC_STAT
+       return newRV_noinc((SV*) fields);
+}
+
+SV*
+get_field_descriptions() {
+		 dTHX;
+	     HV* fields;
+	     fields = newHV();
+#define MAC_STAT(type, l, field, description)	\
+	  hv_store(fields, #type, strlen(#type), newSVpv(description, 0),0); \
+		
+#include <varnish/stat_field.h>
+#undef MAC_STAT
+       return newRV_noinc((SV*) fields);
+}
+
+IV
+get_stat(struct varnish_stats *VSL_stats, const char* stat) {
+
+
+#define MAC_STAT(type, l, field, description)	\
+  if(!strcmp(#type, stat)) {			\
+    return VSL_stats->type;			\
+  }				   \
+			   
+#include <varnish/stat_field.h>
+#undef MAC_STAT
+
+}
+
+
 MODULE = Varnish::API		PACKAGE = Varnish::API		
 
 
 INCLUDE: const-xs.inc
 
+SV*
+VSL_GetStatFieldTypes()
+	CODE:
+	RETVAL = get_field_type();
+	OUTPUT:
+	RETVAL
+
+SV*
+VSL_GetStatFieldDescriptions()
+	CODE:
+	RETVAL = get_field_descriptions();
+	OUTPUT:
+	RETVAL
+	
 
 unsigned int
 SHMLOG_ID(logentry)
@@ -131,9 +190,25 @@ VSL_OpenLog(vd, varnish_name)
 	VSL_OpenLog(data, varnish_name);
 
 
-struct varnish_stats *
+SV*
 VSL_OpenStats(varnish_name)
 	const char *	varnish_name
+	PPCODE:
+	struct varnish_stats *stats = VSL_OpenStats(varnish_name);
+	ST(0) = newSViv((IV)stats);
+	sv_2mortal(ST(0));
+	XSRETURN(1);
+
+SV*
+VSL_GetStat(sd, stat)
+	SV* sd
+	const char * stat
+	CODE:
+	struct varnish_stats * stats = (struct varnish_stats *)SvIV(sd);
+	IV nr = get_stat(stats, stat);
+	RETVAL = newSViv(nr);
+	OUTPUT:
+	RETVAL
 
 int
 varnish_instance(n_arg, name, namelen, dir, dirlen)
