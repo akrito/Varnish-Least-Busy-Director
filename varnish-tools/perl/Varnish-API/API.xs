@@ -116,8 +116,11 @@ VSL_NextLog(vd)
 	
 void
 VSL_NonBlocking(vd, nb)
-	struct VSL_data *	vd
+        SV* vd
 	int	nb
+	CODE:
+	struct VSL_data* data = (struct VSL_data*) SvIV(vd);
+	VSL_NonBlocking(data, nb);
 
 int
 VSL_OpenLog(vd, varnish_name)
@@ -126,17 +129,11 @@ VSL_OpenLog(vd, varnish_name)
 	CODE:
 	struct VSL_data* data = (struct VSL_data*) SvIV(vd);
 	VSL_OpenLog(data, varnish_name);
-	
+
 
 struct varnish_stats *
 VSL_OpenStats(varnish_name)
 	const char *	varnish_name
-
-void
-VSL_Select(vd, tag)
-	struct VSL_data *	vd
-	unsigned	tag
-
 
 int
 varnish_instance(n_arg, name, namelen, dir, dirlen)
