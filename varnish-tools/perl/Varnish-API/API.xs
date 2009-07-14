@@ -62,6 +62,20 @@ get_field_descriptions() {
        return newRV_noinc((SV*) fields);
 }
 
+SV*
+get_tags() {
+		 dTHX;
+	     HV* fields;
+	     fields = newHV();
+	     int i = 1;
+#define SLTM(foo)       \
+	  hv_store(fields, #foo, strlen(#foo), newSViv(i++),0); \
+
+#include <varnish/shmlog_tags.h>		
+#undef SLTM
+       return newRV_noinc((SV*) fields);
+}
+
 IV
 get_stat(struct varnish_stats *VSL_stats, const char* stat) {
 
@@ -88,6 +102,14 @@ VSL_GetStatFieldTypes()
 	RETVAL = get_field_type();
 	OUTPUT:
 	RETVAL
+
+SV*
+VSL_GetTags()
+	CODE:
+	RETVAL = get_tags();
+	OUTPUT:
+	RETVAL
+
 
 SV*
 VSL_GetStatFieldDescriptions()

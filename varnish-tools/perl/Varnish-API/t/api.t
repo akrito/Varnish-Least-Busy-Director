@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 BEGIN { use_ok('Varnish::API') };
 use Devel::Peek;
 
@@ -21,3 +21,5 @@ Varnish::API::VSL_NonBlocking($vd, 2);
 ok(1);
 ok(1, Varnish::API::VSL_Name);
 
+my $tags = Varnish::API::VSL_GetTags();
+is(Varnish::API::VSL_tags($tags->{Length}), "Length");
