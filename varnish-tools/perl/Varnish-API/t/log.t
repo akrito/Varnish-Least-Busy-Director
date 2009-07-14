@@ -1,30 +1,23 @@
 
-use Test::More tests => 2;
+use Test::More tests => 4;
 BEGIN { use_ok('Varnish::API') };
 use Devel::Peek;
-my $vd = Varnish::API::VSL_New;
 
-#print Dump($vd);
-my $foo =  Varnish::API::VSL_Name();
+use Sys::Hostname qw(hostname);
 
-Varnish::API::VSL_OpenLog($vd, "varnish1");
-
-my $blah = \$vd;
+my $host = hostname;
 
 
-my $i = 1;
-while(1) { 
-	 Varnish::API::VSL_Dispatch($vd, sub {});
-	 $i++;
-	 unless($i % 10000) { print "$i\n" }
+my $vd = Varnish::API::VSL_New();
+Varnish::API::VSL_OpenLog($vd, $host);
+
+Varnish::API::VSL_Dispatch($vd, sub { ok(1); return 1});
+
+{
+  my $i = 0;
+  Varnish::API::VSL_Dispatch($vd, sub {
+			       ok(1);
+			       return $i++;
+			     });
 }
 
-
-#ub { print join(" -- ", @_); print "\n"}) }
-
-#for(1..100) { 
-#print Dump($blah);
-#my $blah = Varnish::API::VSL_NextLog($vd);
-#print Dump($blah);
-#print "$blah\n";
-#}

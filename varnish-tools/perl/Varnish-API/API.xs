@@ -12,6 +12,8 @@ int
 dispatch_callback(void *priv, enum shmlogtag tag, unsigned fd, unsigned len,
     unsigned spec, const char *ptr) {
     dSP;
+    int count;
+    int rv;
 
     ENTER;
     SAVETMPS;
@@ -21,10 +23,13 @@ dispatch_callback(void *priv, enum shmlogtag tag, unsigned fd, unsigned len,
     XPUSHs(sv_2mortal(newSViv(spec)));
     XPUSHs(sv_2mortal(newSVpv(ptr,0)));
     PUTBACK;
-    call_sv((SV*) priv, G_VOID);
+    count = call_sv((SV*) priv, G_SCALAR);
+    SPAGAIN;
+    rv = POPi;
+    PUTBACK;    
     FREETMPS;
     LEAVE;
-    return (1);
+    return (rv);
 }
 
 MODULE = Varnish::API		PACKAGE = Varnish::API		
