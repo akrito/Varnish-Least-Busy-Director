@@ -642,7 +642,7 @@ sub populate_stats
 {
 	my $arg = "-1";
 	if ($varnishname) {
-		$arg .= " -l $varnishname";
+		$arg .= " -n $varnishname";
 	} 
 	foreach my $line (`$varnishstatexec $arg`) {
 		chomp($line);
