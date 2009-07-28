@@ -1,4 +1,4 @@
-#!/usr/local/bin/tclsh8.4
+#!/usr/bin/tclsh8.5
 #-
 # Copyright (c) 2006 Verdens Gang AS
 # Copyright (c) 2006-2009 Linpro AS

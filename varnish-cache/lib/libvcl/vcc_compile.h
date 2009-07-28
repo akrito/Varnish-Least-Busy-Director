@@ -186,6 +186,9 @@ parsedirector_f vcc_ParseRandomDirector;
 /* vcc_dir_round_robin.c */
 parsedirector_f vcc_ParseRoundRobinDirector;
 
+/* vcc_dir_least_busy.c */
+parsedirector_f vcc_ParseLeastBusyDirector;
+
 /* vcc_obj.c */
 extern struct var vcc_vars[];
 

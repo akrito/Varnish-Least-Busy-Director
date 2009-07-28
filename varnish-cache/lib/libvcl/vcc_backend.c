@@ -720,6 +720,7 @@ static const struct dirlist {
 } dirlist[] = {
 	{ "random",		vcc_ParseRandomDirector },
 	{ "round-robin",	vcc_ParseRoundRobinDirector },
+        { "least-busy",         vcc_ParseLeastBusyDirector },
 	{ NULL,		NULL }
 };
 

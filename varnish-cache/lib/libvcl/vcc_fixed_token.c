@@ -1,5 +1,5 @@
 /*
- * $Id: vcc_gen_fixed_token.tcl 4099 2009-06-08 21:40:48Z phk $
+ * $Id$
  *
  * NB:  This file is machine generated, DO NOT EDIT!
  *
@@ -159,10 +159,9 @@ vcl_output_lang_h(struct vsb *sb)
 
 	/* ../../include/vcl.h */
 
-	vsb_cat(sb, "/*\n * $Id: vcc_gen_fixed_token.tcl 4099 2009-06-08 21");
-	vsb_cat(sb, ":40:48Z phk $\n *\n * NB:  This file is machine genera");
-	vsb_cat(sb, "ted, DO NOT EDIT!\n *\n * Edit and run vcc_gen_fixed_t");
-	vsb_cat(sb, "oken.tcl instead\n */\n\nstruct sess;\n");
+	vsb_cat(sb, "/*\n * $Id$\n *\n * NB:  This file is machine generate");
+	vsb_cat(sb, "d, DO NOT EDIT!\n *\n * Edit and run vcc_gen_fixed_tok");
+	vsb_cat(sb, "en.tcl instead\n */\n\nstruct sess;\n");
 	vsb_cat(sb, "struct cli;\n\ntypedef void vcl_init_f(struct cli *);\n");
 	vsb_cat(sb, "typedef void vcl_fini_f(struct cli *);\n");
 	vsb_cat(sb, "typedef int vcl_func_f(struct sess *sp);\n");
@@ -230,15 +229,15 @@ vcl_output_lang_h(struct vsb *sb)
 	vsb_cat(sb, " * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWI");
 	vsb_cat(sb, "SE) ARISING IN ANY WAY\n * OUT OF THE USE OF THIS SOFT");
 	vsb_cat(sb, "WARE, EVEN IF ADVISED OF THE POSSIBILITY OF\n");
-	vsb_cat(sb, " * SUCH DAMAGE.\n *\n * $Id: vrt.h 4025 2009-04-03 21:");
-	vsb_cat(sb, "52:44Z des $\n *\n * Runtime support for compiled VCL ");
-	vsb_cat(sb, "programs.\n *\n * XXX: When this file is changed, lib/");
-	vsb_cat(sb, "libvcl/vcc_gen_fixed_token.tcl\n");
-	vsb_cat(sb, " * XXX: *MUST* be rerun.\n */\n");
-	vsb_cat(sb, "\nstruct sess;\nstruct vsb;\nstruct cli;\n");
-	vsb_cat(sb, "struct director;\nstruct VCL_conf;\n");
-	vsb_cat(sb, "struct sockaddr;\n\n/*\n * A backend probe specificati");
-	vsb_cat(sb, "on\n */\n\nextern void *vrt_magic_string_end;\n");
+	vsb_cat(sb, " * SUCH DAMAGE.\n *\n * $Id$\n *\n");
+	vsb_cat(sb, " * Runtime support for compiled VCL programs.\n");
+	vsb_cat(sb, " *\n * XXX: When this file is changed, lib/libvcl/vcc_");
+	vsb_cat(sb, "gen_fixed_token.tcl\n * XXX: *MUST* be rerun.\n");
+	vsb_cat(sb, " */\n\nstruct sess;\nstruct vsb;\n");
+	vsb_cat(sb, "struct cli;\nstruct director;\n");
+	vsb_cat(sb, "struct VCL_conf;\nstruct sockaddr;\n");
+	vsb_cat(sb, "\n/*\n * A backend probe specification\n");
+	vsb_cat(sb, " */\n\nextern void *vrt_magic_string_end;\n");
 	vsb_cat(sb, "\nstruct vrt_backend_probe {\n\tconst char\t*url;\n");
 	vsb_cat(sb, "\tconst char\t*request;\n\tdouble\t\ttimeout;\n");
 	vsb_cat(sb, "\tdouble\t\tinterval;\n\tunsigned\twindow;\n");
@@ -270,8 +269,14 @@ vcl_output_lang_h(struct vsb *sb)
 	vsb_cat(sb, "};\n\nstruct vrt_dir_round_robin {\n");
 	vsb_cat(sb, "\tconst char\t\t\t\t*name;\n\tunsigned\t\t\t\tnmember;");
 	vsb_cat(sb, "\n\tconst struct vrt_dir_round_robin_entry\t*members;\n");
-	vsb_cat(sb, "};\n\n\n/*\n * other stuff.\n * XXX: document when bor");
-	vsb_cat(sb, "ed\n */\n\nstruct vrt_ref {\n\tunsigned\tsource;\n");
+	vsb_cat(sb, "};\n\n/*\n * A director with least-busy selection\n");
+	vsb_cat(sb, " */\n\nstruct vrt_dir_least_busy_entry {\n");
+	vsb_cat(sb, "\tconst struct vrt_backend\t\t*host;\n");
+	vsb_cat(sb, "};\n\nstruct vrt_dir_least_busy {\n");
+	vsb_cat(sb, "\tconst char\t\t\t\t*name;\n\tunsigned\t\t\t\tnmember;");
+	vsb_cat(sb, "\n\tconst struct vrt_dir_least_busy_entry\t*members;\n");
+	vsb_cat(sb, "};\n\n/*\n * other stuff.\n * XXX: document when bored");
+	vsb_cat(sb, "\n */\n\nstruct vrt_ref {\n\tunsigned\tsource;\n");
 	vsb_cat(sb, "\tunsigned\toffset;\n\tunsigned\tline;\n");
 	vsb_cat(sb, "\tunsigned\tpos;\n\tunsigned\tcount;\n");
 	vsb_cat(sb, "\tconst char\t*token;\n};\n\n/* ACL related */\n");
@@ -319,9 +324,8 @@ vcl_output_lang_h(struct vsb *sb)
 
 	/* ../../include/vrt_obj.h */
 
-	vsb_cat(sb, "/*\n * $Id: vcc_gen_obj.tcl 4066 2009-05-10 21:21:36Z ");
-	vsb_cat(sb, "sky $\n *\n * NB:  This file is machine generated, DO ");
-	vsb_cat(sb, "NOT EDIT!\n *\n * Edit vcc_gen_obj.tcl instead\n");
+	vsb_cat(sb, "/*\n * $Id$\n *\n * NB:  This file is machine generate");
+	vsb_cat(sb, "d, DO NOT EDIT!\n *\n * Edit vcc_gen_obj.tcl instead\n");
 	vsb_cat(sb, " */\n\nstruct sockaddr * VRT_r_client_ip(const struct ");
 	vsb_cat(sb, "sess *);\nstruct sockaddr * VRT_r_server_ip(struct ses");
 	vsb_cat(sb, "s *);\nconst char * VRT_r_server_hostname(struct sess ");

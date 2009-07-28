@@ -114,6 +114,19 @@ struct vrt_dir_round_robin {
 	const struct vrt_dir_round_robin_entry	*members;
 };
 
+/*
+ * A director with least-busy selection
+ */
+
+struct vrt_dir_least_busy_entry {
+	const struct vrt_backend		*host;
+};
+
+struct vrt_dir_least_busy {
+	const char				*name;
+	unsigned				nmember;
+	const struct vrt_dir_least_busy_entry	*members;
+};
 
 /*
  * other stuff.
