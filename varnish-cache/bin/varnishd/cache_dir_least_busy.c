@@ -76,6 +76,7 @@ vdi_least_busy_getfd(struct sess *sp)
 
   /* Find the least-busy, healthy backend */
   n1 = -1;
+  b = 0;
   for (i = 0; i < vs->nhosts; i++) {
     if (vs->hosts[i].backend->healthy) {
       n2 = vs->hosts[i].backend->n_conn;
@@ -85,7 +86,7 @@ vdi_least_busy_getfd(struct sess *sp)
       }
     }
   }
-  vbe = VBE_GetVbe(sp, vs->hosts[i].backend);
+  vbe = VBE_GetVbe(sp, vs->hosts[b].backend);
   if (vbe != NULL)
     return (vbe);
   return (NULL);
