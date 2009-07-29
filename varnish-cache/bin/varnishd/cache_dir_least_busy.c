@@ -55,7 +55,7 @@ struct vdi_least_busy_host {
 
 struct vdi_least_busy {
 	unsigned		magic;
-#define VDI_LEAST_BUSY_MAGIC	0x3771ae24 /* FIXME */
+#define VDI_LEAST_BUSY_MAGIC	0x12dbaf45
 	struct director		dir;
 
 	struct vdi_least_busy_host	*hosts;
