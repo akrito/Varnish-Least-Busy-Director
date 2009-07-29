@@ -78,7 +78,7 @@ vdi_random_getfd(struct sess *sp)
 
 	for (k = 0; k < vs->retries; ) {
 
-		/* Sum up the weights of healty backends */
+		/* Sum up the weights of healthy backends */
 		s1 = 0.0;
 		for (i = 0; i < vs->nhosts; i++)
 			if (vs->hosts[i].backend->healthy)
