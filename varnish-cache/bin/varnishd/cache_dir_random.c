@@ -82,7 +82,7 @@ vdi_random_getfd(struct sess *sp)
 		s1 = 0.0;
 		for (i = 0; i < vs->nhosts; i++)
 			if (vs->hosts[i].backend->healthy)
-				s1 += vs->hosts[i].weight;
+                          s1 += vs->hosts[i].weight / ((double) vs->hosts[i].backend->n_conn + 1);
 
 		if (s1 == 0.0)
 			return (NULL);
@@ -96,7 +96,7 @@ vdi_random_getfd(struct sess *sp)
 		for (i = 0; i < vs->nhosts; i++)  {
 			if (!vs->hosts[i].backend->healthy)
 				continue;
-			s1 += vs->hosts[i].weight;
+			s1 += vs->hosts[i].weight / ((double) vs->hosts[i].backend->n_conn + 1);
 			if (r >= s1)
 				continue;
 			vbe = VBE_GetVbe(sp, vs->hosts[i].backend);
