@@ -35,3 +35,4 @@ varnish-cache/man/vcl.7
 varnish-cache/missing
 varnish-cache/stamp-h1
 varnish-cache/varnishapi.pc
+worldonline_2.vcl
